@@ -26,33 +26,32 @@ class CurveChain(coreLimb.CoreLimb):
 
     def __init__(self, **kwargs):
         super(CurveChain, self).__init__(**kwargs)
-        self._guide_curves = kwargs.get('guide_curves', None)
-        self._joints_number = kwargs.get('joints_number', 10)
-        self._guide_controls = kwargs.get('guide_controls', [])
-        self._additional_description = kwargs.get('additional_description', 'curveChain')
-        self._control_manip_orient = kwargs.get('control_manip_orient', None)
-        self._curve_skin_cluster = kwargs.get('curve_skin_cluster', '')
-        self._global_scale_attr = kwargs.get('global_scale_attr', None)
-        self._uniform = kwargs.get('uniform', True)
+        self._guide_curves = None
+        self._joints_number = None
+        self._guide_controls = None
+        self._control_manip_orient = None
+        self._curve_skin_cluster = None
+        self._global_scale_attr = None
+        self._uniform = None
 
-        self._twist_curve_data = kwargs.get('twist_curve_data', [[0, 0], [1, 1]])
-        self._twist_curve_kind = kwargs.get('twist_curve_kind', 'linear')
+        self._twist_curve_data = None
+        self._twist_curve_kind = None
 
-        self._volume = kwargs.get('volume', False)
-        self._volume_curve_data = kwargs.get('volume_curve_data', [[0, 0], [0.5, 1], [1, 0]])
-        self._volume_curve_kind = kwargs.get('volume_curve_kind', 'quadratic')
+        self._volume = None
+        self._volume_curve_data = None
+        self._volume_curve_kind = None
 
-        self._aim_vector = kwargs.get('aim_vector', [1, 0, 0])
-        self._up_vector = kwargs.get('up_vector', [0, 1, 0])
-        self._aim_type = kwargs.get('aim_type', 'tangent')
+        self._aim_vector = None
+        self._up_vector = None
+        self._aim_type = None
 
         self._curve = None
         self._up_curve = None
         self._constraints = []
 
         # get twist weights and volume weights
-        self._twist_weights = self.get_curve_values(self._twist_curve_data, self._twist_curve_kind)
-        self._volume_weights = self.get_curve_values(self._volume_curve_data, self._volume_curve_kind)
+        self._twist_weights = None
+        self._volume_weights = None
 
     @property
     def curve(self):
@@ -62,12 +61,49 @@ class CurveChain(coreLimb.CoreLimb):
     def up_curve(self):
         return self._up_curve
 
-    def register_outputs(self):
-        super(CurveChain, self).register_outputs()
+    def get_build_kwargs(self, **kwargs):
+        super(CurveChain, self).get_build_kwargs(**kwargs)
+        self._guide_curves = kwargs.get('guide_curves', None)
+        self._joints_number = kwargs.get('joints_number', 10)
+        self._guide_controls = kwargs.get('guide_controls', [])
+        self._additional_description = kwargs.get('additional_description', ['curveChain'])
+        self._control_manip_orient = kwargs.get('control_manip_orient', None)
+        self._curve_skin_cluster = kwargs.get('curve_skin_cluster', '')
+        self._global_scale_attr = kwargs.get('global_scale_attr', None)
+        self._uniform = kwargs.get('uniform', True)
+        self._aim_type = kwargs.get('aim_type', 'tangent')
+
+        self._twist_curve_data = kwargs.get('twist_curve_data', [[0, 0], [1, 1]])
+        self._twist_curve_kind = kwargs.get('twist_curve_kind', 'linear')
+
+        self._volume = kwargs.get('volume', False)
+        self._volume_curve_data = kwargs.get('volume_curve_data', [[0, 0], [0.5, 1], [1, 0]])
+        self._volume_curve_kind = kwargs.get('volume_curve_kind', 'quadratic')
+
+        self._aim_vector = [1, 0, 0]
+        self._up_vector = [0, 1, 0]
+
+        # get twist weights and volume weights
+        self._twist_weights = self.get_curve_values(self._twist_curve_data, self._twist_curve_kind)
+        self._volume_weights = self.get_curve_values(self._volume_curve_data, self._volume_curve_kind)
+
+    def flip_build_kwargs(self):
+        super(CurveChain, self).flip_build_kwargs()
+        self._guide_curves = namingUtils.flip_names(self._guide_curves)
+        self._guide_controls = namingUtils.flip_names(self._guide_controls)
+        self._control_manip_orient = namingUtils.flip_names(self._control_manip_orient)
+
+        self._aim_vector = [-1, 0, 0]
+        self._up_vector = [0, -1, 0]
+
+    def add_output_attributes(self):
+        super(CurveChain, self).add_output_attributes()
         attributeUtils.add(self._output_node, [self.CURVE_ATTR, self.UP_CURVE_ATTR], attribute_type='message')
-        attributeUtils.connect(['{0}.{1}'.format(self._curve, attributeUtils.MESSAGE),
-                                '{0}.{1}'.format(self._up_curve, attributeUtils.MESSAGE)],
-                               [self.CURVE_ATTR, self.UP_CURVE_ATTR], driven=self._output_node)
+        attributeUtils.connect('{0}.{1}'.format(self._curve, attributeUtils.MESSAGE),
+                               self.CURVE_ATTR, driven=self._output_node)
+        if self._up_curve:
+            attributeUtils.connect('{0}.{1}'.format(self._up_curve, attributeUtils.MESSAGE),
+                                   self.UP_CURVE_ATTR, driven=self._output_node)
 
     def get_output_info(self):
         super(CurveChain, self).get_output_info()
@@ -108,16 +144,13 @@ class CurveChain(coreLimb.CoreLimb):
 
         # create controllers and joints to control the curve
         curve_jnts = []
-        tag_parent = None
         for guide, manip_orient in zip(self._guide_controls, self._control_manip_orient):
             name_info = namingUtils.decompose(guide)
             # create controller
             ctrl = controlUtils.create(name_info['description'], side=name_info['side'], index=name_info['index'],
                                        limb_index=name_info['limb_index'], additional_description=None, sub=True,
                                        parent=self._controls_group, position=guide, rotate_order=0,
-                                       manip_orient=manip_orient, lock_hide=attributeUtils.SCALE,
-                                       shape=self._control_shape, color=self._control_color, size=self._control_size,
-                                       tag=self._tag_control, tag_parent=tag_parent)
+                                       manip_orient=manip_orient, lock_hide=attributeUtils.SCALE)
             self._controls.append(ctrl)
 
             # create joint
@@ -132,15 +165,12 @@ class CurveChain(coreLimb.CoreLimb):
                                                 maintain_offset=False)
             curve_jnts.append(jnt)
 
-            # override tag parent
-            tag_parent = ctrl
-
         # bind with the curve
         if self._curve_skin_cluster:
             # load skin cluster
-            deformerUtils.skinCluster.import_data(self._curve_skin_cluster, geo=self._curve)
+            deformerUtils.skinCluster.import_data(self._curve_skin_cluster, geo=self._curve, flip=self._flip)
             if self._up_curve:
-                deformerUtils.skinCluster.import_data(self._curve_skin_cluster, geo=self._up_curve)
+                deformerUtils.skinCluster.import_data(self._curve_skin_cluster, geo=self._up_curve, flip=self._flip)
         else:
             # give it a default skin cluster
             cmds.skinCluster(curve_jnts, self._curve, toSelectedBones=True, dropoffRate=6, bindMethod=0,

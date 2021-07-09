@@ -11,18 +11,32 @@ class FkChain(coreLimb.CoreLimb):
 
     def __init__(self, **kwargs):
         super(FkChain, self).__init__(**kwargs)
+        self._lock_hide = None
+        self._control_end_joint = None
         self._lock_hide = kwargs.get('lock_hide', attributeUtils.SCALE)
         self._additional_description = kwargs.get('additional_description', 'fk')
         self._control_end_joint = kwargs.get('control_end_joint', False)
 
         # input attr
+        self._input_hierarchy_matrix = None
         self._input_hierarchy_matrix_attr = None
 
-        # connections
+    def get_build_kwargs(self, **kwargs):
+        super(FkChain, self).get_build_kwargs(**kwargs)
+        self._lock_hide = kwargs.get('lock_hide', attributeUtils.SCALE)
+        self._additional_description = kwargs.get('additional_description', ['fk'])
+        self._control_end_joint = kwargs.get('control_end_joint', False)
+
+    def get_connect_kwargs(self, **kwargs):
+        super(FkChain, self).get_connect_kwargs(**kwargs)
         self._input_hierarchy_matrix = kwargs.get('input_hierarchy_matrix', None)
 
-    def register_inputs(self):
-        super(FkChain, self).register_inputs()
+    def flip_connect_kwargs(self):
+        super(FkChain, self).flip_connect_kwargs()
+        self._input_hierarchy_matrix = namingUtils.flip_names(self._input_hierarchy_matrix)
+
+    def add_input_attributes(self):
+        super(FkChain, self).add_input_attributes()
         self._input_hierarchy_matrix_attr = attributeUtils.add(self._input_node, self.INPUT_HIERARCHY_MATRIX_ATTR,
                                                                attribute_type='matrix')[0]
 
@@ -42,15 +56,13 @@ class FkChain(coreLimb.CoreLimb):
             ctrl = controlUtils.create(name_info['description'], side=name_info['side'], index=name_info['index'],
                                        limb_index=name_info['limb_index'], sub=True, parent=parent, position=g,
                                        rotate_order=0, manip_orient=None, lock_hide=self._lock_hide,
-                                       shape=self._control_shape, color=self._control_color, size=self._control_size,
-                                       tag=self._tag_control, input_matrix=input_matrix)
+                                       input_matrix=input_matrix)
 
             # add to control list
             self._controls.append(ctrl)
 
             # override control parent node
             parent = ctrl
-            tag_parent = ctrl
             # override input matrix
             input_matrix = '{0}.{1}'.format(ctrl, controlUtils.HIERARCHY_MATRIX_ATTR)
         # override setup nodes
@@ -62,9 +74,8 @@ class FkChain(coreLimb.CoreLimb):
             constraintUtils.position_constraint('{0}.{1}'.format(ctrl, controlUtils.OUT_MATRIX_ATTR), jnt,
                                                 maintain_offset=False)
             
-    def connect(self, **kwargs):
-        super(FkChain, self).connect(**kwargs)
-        self._input_hierarchy_matrix = kwargs.get('input_hierarchy_matrix', None)
+    def connect_input_attributes(self):
+        super(FkChain, self).connect_input_attributes()
         if self._input_hierarchy_matrix:
             attributeUtils.connect(self._input_hierarchy_matrix, self.INPUT_HIERARCHY_MATRIX_ATTR,
                                    driven=self._input_node)

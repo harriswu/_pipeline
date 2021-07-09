@@ -325,7 +325,7 @@ def export_data(geo, file_path):
         fileUtils.numpyUtils.write(file_path, skin_data)
 
 
-def import_data(file_path, geo=None, force=False):
+def import_data(file_path, geo=None, flip=False, force=False):
     """
     import skin cluster data
 
@@ -333,6 +333,7 @@ def import_data(file_path, geo=None, force=False):
         file_path (str): skin data file
         geo (str/None): if need to attach skin cluster to a different name geometry than the one in the skin data,
                         default is None
+        flip (bool): if set to True, instead of using the given side, it will use the other side influences to bind skin
         force (bool): if set to True, will delete current geometry's skin cluster, and bind with influences,
                       default is False
 
@@ -351,6 +352,9 @@ def import_data(file_path, geo=None, force=False):
         warnings.warn(geo + ' does not exist in the scene, skipped')
         return None
 
+    # flip influences
+    if flip:
+        skin_data[1] = namingUtils.flip_names(skin_data[1])
     # check influence number, if only one joint, do a rigid biped
     if len(skin_data[1]) == 1:
         skin_cluster = create(geo, skin_data[1], force=force)

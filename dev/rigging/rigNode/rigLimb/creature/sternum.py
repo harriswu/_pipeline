@@ -24,12 +24,12 @@ class Sternum(coreLimb.CoreLimb):
 
     def __init__(self, **kwargs):
         super(Sternum, self).__init__(**kwargs)
-        self._guide_control = kwargs.get('guide_control', None)
-        self._translate_multiplier = kwargs.get('translate_multiplier', 0)
-        self._rotate_multiplier = kwargs.get('rotate_multiplier', 10)
-        self._auto_breathe = kwargs.get('auto_breath', True)
-        self._amplitude = kwargs.get('amplitude', 0.5)
-        self._frequency = kwargs.get('frequency', 5)
+        self._guide_control = None
+        self._translate_multiplier = None
+        self._rotate_multiplier = None
+        self._auto_breathe = None
+        self._amplitude = None
+        self._frequency = None
 
         self._ud_attr = None
         self._translate_mult_attr = None
@@ -53,8 +53,23 @@ class Sternum(coreLimb.CoreLimb):
     def pump_handle_attr(self):
         return self._pump_handle_attr
 
-    def register_inputs(self):
-        super(Sternum, self).register_inputs()
+    def get_build_kwargs(self, **kwargs):
+        super(Sternum, self).get_build_kwargs(**kwargs)
+        self._guide_control = kwargs.get('guide_control', None)
+        self._translate_multiplier = kwargs.get('translate_multiplier', 0)
+        self._rotate_multiplier = kwargs.get('rotate_multiplier', 10)
+        self._auto_breathe = kwargs.get('auto_breath', True)
+        self._amplitude = kwargs.get('amplitude', 0.5)
+        self._frequency = kwargs.get('frequency', 5)
+
+    def flip_build_kwargs(self):
+        super(Sternum, self).flip_build_kwargs()
+        self._guide_control = namingUtils.flip_names(self._guide_control)
+        self._translate_multiplier *= -1
+
+    def add_input_attributes(self):
+        super(Sternum, self).add_input_attributes()
+
         self._translate_mult_attr, self._rotate_mult_attr = attributeUtils.add(self._input_node,
                                                                                [self.TRANSLATE_MULT_ATTR,
                                                                                 self.ROTATE_MULT_ATTR],
@@ -71,9 +86,7 @@ class Sternum(coreLimb.CoreLimb):
         ctrl = controlUtils.create(name_info['description'], side=name_info['side'], index=name_info['index'],
                                    limb_index=name_info['limb_index'], sub=False, parent=self._controls_group,
                                    position=self._guide_control, rotate_order=0, manip_orient=None,
-                                   lock_hide=[attributeUtils.ALL[0]] + attributeUtils.ALL[2:],
-                                   shape=self._control_shape, color=self._control_color, size=self._control_size,
-                                   tag=self._tag_control, tag_parent=self._tag_parent)
+                                   lock_hide=[attributeUtils.ALL[0]] + attributeUtils.ALL[2:])
         # limit transform
         cmds.transformLimits(ctrl, enableTranslationY=[1, 1], translationY=[-2, 2])
 
@@ -101,14 +114,8 @@ class Sternum(coreLimb.CoreLimb):
 
     def create_setup_nodes(self):
         super(Sternum, self).create_setup_nodes()
-        if isinstance(self._additional_description, basestring):
-            additional_description = [self._additional_description, 'setup']
-        elif self._additional_description:
-            additional_description = self._additional_description + ['setup']
-        else:
-            additional_description = 'setup'
         self._setup_nodes = namingUtils.update_sequence(self._guide_joints, type='joint',
-                                                        additional_description=additional_description)
+                                                        additional_description=self._additional_description + ['setup'])
         self._setup_nodes = jointUtils.create_chain(self._guide_joints, self._setup_nodes,
                                                     parent_node=self._setup_group)
 
@@ -151,8 +158,8 @@ class Sternum(coreLimb.CoreLimb):
             attributeUtils.connect(attributeUtils.TRANSFORM, attributeUtils.TRANSFORM,
                                    driver=setup_jnt, driven=jnt)
 
-    def register_outputs(self):
-        super(Sternum, self).register_outputs()
+    def add_output_attributes(self):
+        super(Sternum, self).add_output_attributes()
         self._pump_handle_attr = attributeUtils.add(self._output_node, self.PUMP_HANDLE_ATTR, attribute_type='float')[0]
         cmds.connectAttr(self._ud_attr, self._pump_handle_attr)
 

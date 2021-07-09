@@ -12,9 +12,13 @@ import dev.rigging.rigNode.rigLimb.core.ikHandle as ikHandle
 class MultiScIk(ikHandle.IkHandle):
     def __init__(self, **kwargs):
         super(MultiScIk, self).__init__(**kwargs)
-        self._additional_description = kwargs.get('additional_description', 'multiScIk')
+        self._additional_description = None
 
         self._ik_type = 'ikSCsolver'
+
+    def get_build_kwargs(self, **kwargs):
+        super(MultiScIk, self).get_build_kwargs(**kwargs)
+        self._additional_description = kwargs.get('additional_description', 'multiScIk')
 
     def create_ik(self):
         for i, jnt in enumerate(self._setup_nodes[:-1]):

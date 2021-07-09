@@ -33,16 +33,26 @@ class MultiSwitch(coreUtility.CoreUtility):
     def output_attr(self):
         return self._output_attr
 
-    def get_connection_kwargs(self, **kwargs):
-        super(MultiSwitch, self).get_connection_kwargs(**kwargs)
-        self._additional_description = kwargs.get('additional_description', 'multiSwitch')
+    def get_build_kwargs(self, **kwargs):
+        super(MultiSwitch, self).get_build_kwargs(**kwargs)
+        self._additional_description = kwargs.get('additional_description', ['multiSwitch'])
+
+    def get_connect_kwargs(self, **kwargs):
+        super(MultiSwitch, self).get_connect_kwargs(**kwargs)
         self._input_enum1 = kwargs.get('input_enum1', None)
         self._input_enum2 = kwargs.get('input_enum2', None)
         self._input_blender = kwargs.get('input_blend', None)
         self._input_show_all = kwargs.get('input_show_all', None)
 
-    def post_register_inputs(self):
-        super(MultiSwitch, self).post_register_inputs()
+    def flip_connect_kwargs(self):
+        super(MultiSwitch, self).flip_connect_kwargs()
+        self._input_enum1 = namingUtils.flip_names(self._input_enum1)
+        self._input_enum2 = namingUtils.flip_names(self._input_enum2)
+        self._input_blender = namingUtils.flip_names(self._input_blender)
+        self._input_show_all = namingUtils.flip_names(self._input_show_all)
+
+    def add_input_attributes_post(self):
+        super(MultiSwitch, self).add_input_attributes_post()
         # get enum info
         name, self._enum_names, self._enum_indexes = attributeUtils.get_enum_names(self._input_enum1)
         # add enum attr
@@ -53,15 +63,8 @@ class MultiSwitch(coreUtility.CoreUtility):
         self._enum_show_all_attr = attributeUtils.add(self._input_node, self.ENUM_SHOW_ALL_ATTR,
                                                       attribute_type='bool')[0]
 
-    def connect_inputs(self):
-        super(MultiSwitch, self).connect_inputs()
-        # connect with input enums
-        attributeUtils.connect([self._input_enum1, self._input_enum2, self._input_blender, self._input_show_all],
-                               [self._enum_attrs[0], self._enum_attrs[1], self._enum_blend_attr,
-                                self._enum_show_all_attr])
-
-    def post_build(self):
-        super(MultiSwitch, self).post_build()
+    def create_node_post(self):
+        super(MultiSwitch, self).create_node_post()
         for name, index in zip(self._enum_names, self._enum_indexes):
             cond1_output = nodeUtils.utility.condition(self._enum_attrs[0], index, 1, 0,
                                                        name=namingUtils.update(self._node, type='condition',
@@ -94,12 +97,19 @@ class MultiSwitch(coreUtility.CoreUtility):
                                                  name=cond, operation='==')
             self._condition_outputs.append(output + 'R')
 
-    def post_register_outputs(self):
-        super(MultiSwitch, self).post_register_outputs()
+    def add_output_attributes_post(self):
+        super(MultiSwitch, self).add_output_attributes_post()
         attributeUtils.add(self._output_node, self.OUTPUT_ATTR, attribute_type='bool', multi=True)
-        
-    def connect_outputs(self):
-        super(MultiSwitch, self).connect_outputs()
+
+    def connect_input_attributes(self):
+        super(MultiSwitch, self).connect_input_attributes()
+        # connect with input enums
+        attributeUtils.connect([self._input_enum1, self._input_enum2, self._input_blender, self._input_show_all],
+                               [self._enum_attrs[0], self._enum_attrs[1], self._enum_blend_attr,
+                                self._enum_show_all_attr])
+
+    def connect_output_attributes(self):
+        super(MultiSwitch, self).connect_output_attributes()
         attributeUtils.connect_nodes_to_multi_attr(self._condition_outputs, self.OUTPUT_ATTR, driven=self._output_node)
         self._output_attr = self.get_multi_attr_names(self.OUTPUT_ATTR, node=self._output_node)
 

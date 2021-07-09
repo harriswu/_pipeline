@@ -17,41 +17,56 @@ import dev.rigging.rigNode.rigLimb.core.coreLimb as coreLimb
 class PistonAim(coreLimb.CoreLimb):
     def __init__(self, **kwargs):
         super(PistonAim, self).__init__(**kwargs)
-        self._additional_description = kwargs.get('additional_description', 'piston')
-        self._aim_distance_multiplier = kwargs.get('aim_distance_multiplier', 1)
-        self._up_distance_multiplier = kwargs.get('up_distance_multiplier', 1)
-        self._up_type = kwargs.get('up_type', 'object')
+        self._additional_description = None
+        self._aim_distance_multiplier = None
+        self._up_distance_multiplier = None
+        self._up_type = None
 
         self._aim_vector = None
         self._up_vector = None
         self._aim_distance = 1
         self._up_distance = 1
         self._aim_node = None
-        
-    def create_node(self):
-        self.get_aim_vectors()
-        super(PistonAim, self).create_node()
+
+    def get_build_kwargs(self, **kwargs):
+        super(PistonAim, self).get_build_kwargs(**kwargs)
+        self._additional_description = kwargs.get('additional_description', ['piston'])
+        self._aim_distance_multiplier = kwargs.get('aim_distance_multiplier', 1)
+        self._up_distance_multiplier = kwargs.get('up_distance_multiplier', 1)
+        self._up_type = kwargs.get('up_type', 'object')
+
+        self._aim_vector = [1, 0, 0]
+        self._up_vector = [0, 1, 0]
+
+    def flip_build_kwargs(self):
+        super(PistonAim, self).flip_build_kwargs()
+        self._aim_vector = [-1, 0, 0]
+        self._up_vector = [0, 1, 0]
+
+    def get_distance(self):
+        root_pos = cmds.xform(self._guide_joints[0], query=True, translation=True, worldSpace=True)
+        end_pos = cmds.xform(self._guide_joints[-1], query=True, translation=True, worldSpace=True)
+        # get aim distance
+        self._aim_distance = mathUtils.point.get_distance(end_pos, root_pos) * self._aim_distance_multiplier
+        # get up distance
+        self._up_distance = mathUtils.point.get_distance(end_pos, root_pos) * self._up_distance_multiplier
 
     def create_controls(self):
         super(PistonAim, self).create_controls()
-        tag_parent = self._tag_parent
         for jnt, description, lock_attrs in zip([self._guide_joints[0], self._guide_joints[-1]], ['root', 'target'],
                                                 [attributeUtils.ROTATE + attributeUtils.SCALE, attributeUtils.SCALE]):
             # decompose name
             name_info = namingUtils.decompose(jnt)
             # create controller
             ctrl = controlUtils.create(name_info['description'], side=name_info['side'], index=name_info['index'],
-                                       limb_index=name_info['limb_index'], additional_description=description, sub=True,
+                                       limb_index=name_info['limb_index'],
+                                       additional_description=self._additional_description + [description], sub=True,
                                        parent=self._controls_group, position=jnt, rotate_order=0, manip_orient=None,
-                                       lock_hide=lock_attrs, shape=self._control_shape,
-                                       color=self._control_color, size=self._control_size, tag=self._tag_control,
-                                       tag_parent=tag_parent)
+                                       lock_hide=lock_attrs)
             self._controls.append(ctrl)
 
-            # override tag parent
-            tag_parent = ctrl
-
         # move aim controller
+        self.get_distance()
         zero = controlUtils.get_hierarchy_node(self._controls[-1], 'zero')
         vec_scale = mathUtils.vector.scale(self._aim_vector, self._aim_distance)
         ctrl_pos = mathUtils.point.mult_matrix(vec_scale, cmds.getAttr('{0}.{1}'.format(self._guide_joints[0],
@@ -77,25 +92,12 @@ class PistonAim(coreLimb.CoreLimb):
             name_info = namingUtils.decompose(self._guide_joints[0])
             # create up controller to control up vector
             ctrl = controlUtils.create(name_info['description'], side=name_info['side'], index=name_info['index'],
-                                       limb_index=name_info['limb_index'], additional_description='up', sub=True,
+                                       limb_index=name_info['limb_index'],
+                                       additional_description=self._additional_description + ['up'], sub=True,
                                        parent=self._controls_group, position=[up_pos, self._joints[0]], rotate_order=0,
-                                       manip_orient=None, lock_hide=lock_attrs, shape=self._control_shape,
-                                       color=self._control_color, size=self._control_size, tag=self._tag_control,
-                                       tag_parent=self._controls[0])
+                                       manip_orient=None, lock_hide=lock_attrs)
             # add to control list
             self._controls.insert(1, ctrl)
-
-    def get_aim_vectors(self):
-        # get aim vector
-        root_pos = cmds.xform(self._guide_joints[0], query=True, translation=True, worldSpace=True)
-        end_pos = cmds.xform(self._guide_joints[-1], query=True, translation=True, worldSpace=True)
-        self._aim_vector = mathUtils.vector.norm(cmds.getAttr(self._guide_joints[-1] + '.translate')[0])
-        # get aim distance
-        self._aim_distance = mathUtils.point.get_distance(end_pos, root_pos) * self._aim_distance_multiplier
-        # get up vector
-        self._up_vector = mathUtils.vector.cross_product([0, 0, 1], self._aim_vector, normalize=True)
-        # get up distance
-        self._up_distance = mathUtils.point.get_distance(end_pos, root_pos) * self._up_distance_multiplier
 
     def create_setup(self):
         super(PistonAim, self).create_setup()

@@ -54,6 +54,39 @@ class SpaceBlend(coreUtility.CoreUtility):
     def blend_matrix_attr(self):
         return self._blend_matrix_attr
 
+    def get_connect_kwargs(self, **kwargs):
+        super(SpaceBlend, self).get_connect_kwargs(**kwargs)
+        self._input_matrices = kwargs.get('input_matrices', {})
+        self._joint_orients = kwargs.get('joint_orients', [])
+        self._translate = kwargs.get('translate', False)
+        self._rotate = kwargs.get('rotate', True)
+        self._scale = kwargs.get('scale', False)
+        self._parent_inverse_matrices = kwargs.get('parent_inverse_matrices', None)
+        self._defaults = kwargs.get('defaults', [])
+        self._input_space_attrs = kwargs.get('input_space_attrs', None)
+        self._input_blend_attr = kwargs.get('input_blend_attr', None)
+        self._custom_space_index = kwargs.get('custom_space_index', 100)
+
+        # get output nodes count, it depends on how many input matrices given for each space
+        if isinstance(self._input_matrices.values()[0], basestring) or \
+                isinstance(self._input_matrices.values()[0][0], (float, int)):
+            self._output_count = 1
+        else:
+            self._output_count = len(self._input_matrices.values()[0])
+
+        # get parent inverse matrices as list
+        if not isinstance(self._parent_inverse_matrices, list) or \
+                isinstance(self._parent_inverse_matrices[0][0], (float, int)):
+            self._parent_inverse_matrices = [self._parent_inverse_matrices] * self._output_count
+
+    def flip_connect_kwargs(self):
+        super(SpaceBlend, self).flip_connect_kwargs()
+        self._input_matrices = namingUtils.flip_names(self._input_matrices)
+        self._joint_orients = namingUtils.flip_names(self._joint_orients)
+        self._parent_inverse_matrices = namingUtils.flip_names(self._parent_inverse_matrices)
+        self._input_space_attrs = namingUtils.flip_names(self._input_space_attrs)
+        self._input_blend_attr = namingUtils.flip_names(self._input_blend_attr)
+
     def create_hierarchy(self):
         super(SpaceBlend, self).create_hierarchy()
         self._position_constraints_group = transformUtils.create(namingUtils.update(self._node, type='group',
@@ -64,8 +97,8 @@ class SpaceBlend(coreUtility.CoreUtility):
                                                                                  additional_description='scale'),
                                                               lock_hide=attributeUtils.ALL, parent=self._node)
 
-    def post_register_inputs(self):
-        super(SpaceBlend, self).post_register_inputs()
+    def add_input_attributes_post(self):
+        super(SpaceBlend, self).add_input_attributes_post()
         for space, matrices in self._input_matrices.iteritems():
             # add matrix list attribute
             matrix_attr = attributeUtils.add(self._input_node, namingUtils.to_camel_case(space),
@@ -80,10 +113,9 @@ class SpaceBlend(coreUtility.CoreUtility):
                     cmds.setAttr('{0}[{1}]'.format(matrix_attr, i), mtx, type='matrix')
 
         # add joint orients attr
-        cmds.addAttr(self._input_node, longName=self.JOINT_ORIENT_ATTR, attributeType='double3', multi=True)
-        for axis in 'XYZ':
-            cmds.addAttr(self._input_node, longName=self.JOINT_ORIENT_ATTR + axis, attributeType='doubleAngle',
-                         parent=self.JOINT_ORIENT_ATTR)
+        attributeUtils.add_multi_dimension_attribute(self._input_node, self.JOINT_ORIENT_ATTR,
+                                                     compound_type='double3', attribute_type='doubleAngle',
+                                                     suffix='XYZ', keyable=True, multi=True)
         # loop in each joint orient and connect
         if self._joint_orients:
             if isinstance(self._joint_orients, basestring) or isinstance(self._joint_orients[0], (float, int)):
@@ -112,8 +144,8 @@ class SpaceBlend(coreUtility.CoreUtility):
         if self._input_blend_attr:
             attributeUtils.connect(self._input_blend_attr, self._blend_attrs[0])
 
-    def post_build(self):
-        super(SpaceBlend, self).post_build()
+    def create_node_post(self):
+        super(SpaceBlend, self).create_node_post()
         # get skip attributes
         skip_attrs = []
         if not self._translate:
@@ -175,8 +207,8 @@ class SpaceBlend(coreUtility.CoreUtility):
                                         '{0}.input[{1}]'.format(choices[1], index)],
                                        driver=self._input_node)
 
-    def post_register_outputs(self):
-        super(SpaceBlend, self).post_register_outputs()
+    def add_output_attributes_post(self):
+        super(SpaceBlend, self).add_output_attributes_post()
         # add multi matrix attr to hold all output transformation
         cmds.addAttr(self._output_node, longName=self.BLEND_MATRIX_ATTR, attributeType='matrix', multi=True)
         # compose matrix and connect with blend matrix attr
@@ -209,31 +241,6 @@ class SpaceBlend(coreUtility.CoreUtility):
                                                                                self.BLEND_MATRIX_ATTR, i))
 
         self._blend_matrix_attr = self.get_multi_attr_names(self.BLEND_MATRIX_ATTR, node=self._output_node)
-
-    def get_connection_kwargs(self, **kwargs):
-        super(SpaceBlend, self).get_connection_kwargs(**kwargs)
-        self._input_matrices = kwargs.get('input_matrices', {})
-        self._joint_orients = kwargs.get('joint_orients', [])
-        self._translate = kwargs.get('translate', False)
-        self._rotate = kwargs.get('rotate', True)
-        self._scale = kwargs.get('scale', False)
-        self._parent_inverse_matrices = kwargs.get('parent_inverse_matrices', None)
-        self._defaults = kwargs.get('defaults', [])
-        self._input_space_attrs = kwargs.get('input_space_attrs', None)
-        self._input_blend_attr = kwargs.get('input_blend_attr', None)
-        self._custom_space_index = kwargs.get('custom_space_index', 100)
-
-        # get output nodes count, it depends on how many input matrices given for each space
-        if isinstance(self._input_matrices.values()[0], basestring) or \
-                isinstance(self._input_matrices.values()[0][0], (float, int)):
-            self._output_count = 1
-        else:
-            self._output_count = len(self._input_matrices.values()[0])
-
-        # get parent inverse matrices as list
-        if not isinstance(self._parent_inverse_matrices, list) or \
-                isinstance(self._parent_inverse_matrices[0][0], (float, int)):
-            self._parent_inverse_matrices = [self._parent_inverse_matrices] * self._output_count
 
     def get_input_info(self):
         super(SpaceBlend, self).get_input_info()

@@ -9,7 +9,10 @@ import dev.rigging.rigNode.rigLimb.core.ikHandle as ikHandleLimb
 class SingleChainIk(ikHandleLimb.IkHandle):
     def __init__(self, **kwargs):
         super(SingleChainIk, self).__init__(**kwargs)
-        self._additional_description = kwargs.get('additional_description', 'scIk')
+
+    def get_build_kwargs(self, **kwargs):
+        super(SingleChainIk, self).get_build_kwargs(**kwargs)
+        self._additional_description = kwargs.get('additional_description', ['scIk'])
 
     def create_controls(self):
         super(SingleChainIk, self).create_controls()
@@ -20,8 +23,7 @@ class SingleChainIk(ikHandleLimb.IkHandle):
             ctrl = controlUtils.create(name_info['description'], side=name_info['side'], index=name_info['index'],
                                        limb_index=name_info['limb_index'], additional_description=description, sub=True,
                                        parent=self._controls_group, position=jnt, rotate_order=0, manip_orient=None,
-                                       lock_hide=lock_attrs, shape=self._control_shape,
-                                       color=self._control_color, size=self._control_size, tag=self._tag_control)
+                                       lock_hide=lock_attrs)
             self._controls.append(ctrl)
 
     def create_setup(self):

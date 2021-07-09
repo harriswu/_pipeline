@@ -10,14 +10,15 @@ class HandFootFk(fkChain.FkChain):
 
     def __init__(self, **kwargs):
         super(HandFootFk, self).__init__(**kwargs)
+        self._create_joints = True
         self._roll_matrix_attr = None
 
     @property
     def roll_matrix_attr(self):
         return self._roll_matrix_attr
 
-    def register_outputs(self):
-        super(HandFootFk, self).register_outputs()
+    def add_output_attributes(self):
+        super(HandFootFk, self).add_output_attributes()
         self._roll_matrix_attr = attributeUtils.add(self._output_node, self.ROLL_MATRIX_ATTR,
                                                     attribute_type='matrix')[0]
 

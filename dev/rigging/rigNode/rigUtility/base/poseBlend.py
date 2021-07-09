@@ -71,8 +71,8 @@ class PoseBlend(coreUtility.CoreUtility):
     def output_scale(self):
         return self._output_scale
 
-    def get_connection_kwargs(self, **kwargs):
-        super(PoseBlend, self).get_connection_kwargs(**kwargs)
+    def get_connect_kwargs(self, **kwargs):
+        super(PoseBlend, self).get_connect_kwargs(**kwargs)
         self._input_matrix = kwargs.get('input_matrix', None)
         self._reference_matrix = kwargs.get('reference_matrix', None)
         self._input_joint_orient = kwargs.get('input_joint_orient', None)
@@ -86,8 +86,23 @@ class PoseBlend(coreUtility.CoreUtility):
         self._pose_weights_attr = ['{0}.{1}[{2}]'.format(self._input_node, self.POSE_WEIGHTS_ATTR, i)
                                    for i in range(len(self._pose_weights))]
 
-    def register_inputs(self):
-        super(PoseBlend, self).register_inputs()
+    def flip_connect_kwargs(self):
+        super(PoseBlend, self).flip_connect_kwargs()
+        self._input_matrix = namingUtils.flip_names(self._input_matrix)
+        self._reference_matrix = namingUtils.flip_names(self._reference_matrix)
+
+    def create_hierarchy(self):
+        super(PoseBlend, self).create_hierarchy()
+        self._pose_handle_group = transformUtils.create(namingUtils.update(self._node, type='group',
+                                                                           additional_description='poseHandles'),
+                                                        lock_hide=attributeUtils.ALL, parent=self._node)
+
+        self._constraints_group = transformUtils.create(namingUtils.update(self._node, type='group',
+                                                                           additional_description='constraintNodes'),
+                                                        lock_hide=attributeUtils.ALL, parent=self._node)
+
+    def add_input_attributes(self):
+        super(PoseBlend, self).add_input_attributes()
         self._input_matrix_attr = attributeUtils.add(self._input_node, self.INPUT_MATRIX_ATTR, attribute_type='matrix')
         # add pose weights attributes
         attributeUtils.add(self._input_node, self.POSE_WEIGHTS_ATTR, attribute_type='float', multi=True)
@@ -102,8 +117,8 @@ class PoseBlend(coreUtility.CoreUtility):
         self._reference_matrix_attr = attributeUtils.add(self._input_node, self.REFERENCE_MATRIX_ATTR,
                                                          attribute_type='matrix')[0]
 
-    def connect_inputs(self):
-        super(PoseBlend, self).connect_inputs()
+    def connect_input_attributes(self):
+        super(PoseBlend, self).connect_input_attributes()
         # connect with input joint orient
         if self._input_joint_orient:
             attributeUtils.connect(self._input_joint_orient, self._joint_orient_attr)
@@ -116,18 +131,27 @@ class PoseBlend(coreUtility.CoreUtility):
         # get pose weights list
         self._pose_weights_attr = self.get_multi_attr_names(self.POSE_WEIGHTS_ATTR, node=self._input_node)
 
-    def create_hierarchy(self):
-        super(PoseBlend, self).create_hierarchy()
-        self._pose_handle_group = transformUtils.create(namingUtils.update(self._node, type='group',
-                                                                           additional_description='poseHandles'),
-                                                        lock_hide=attributeUtils.ALL, parent=self._node)
+    def add_output_attributes(self):
+        super(PoseBlend, self).add_output_attributes()
+        # add pose handle messages
+        attributeUtils.add(self._output_node, self.POSE_HANDLES_ATTR, attribute_type='message', multi=True)
 
-        self._constraints_group = transformUtils.create(namingUtils.update(self._node, type='group',
-                                                                           additional_description='constraintNodes'),
-                                                        lock_hide=attributeUtils.ALL, parent=self._node)
+        # add output translation rotation and scale
+        self._output_translate = attributeUtils.add_multi_dimension_attribute(self._output_node,
+                                                                              self.OUTPUT_TRANSLATE_ATTR,
+                                                                              compound_type='double3',
+                                                                              attribute_type='doubleLinear',
+                                                                              suffix='XYZ')
+        self._output_rotate = attributeUtils.add_multi_dimension_attribute(self._output_node, self.OUTPUT_ROTATE_ATTR,
+                                                                           compound_type='double3',
+                                                                           attribute_type='doubleAngle', suffix='XYZ')
+        self._output_scale = attributeUtils.add_multi_dimension_attribute(self._output_node, self.OUTPUT_SCALE_ATTR,
+                                                                          compound_type='double3',
+                                                                          attribute_type='doubleLinear', suffix='XYZ',
+                                                                          default_value=[1, 1, 1])
         
-    def post_build(self):
-        super(PoseBlend, self).post_build()
+    def create_node_post(self):
+        super(PoseBlend, self).create_node_post()
         # connect with reference matrix
         constraintUtils.position_constraint(self._reference_matrix_attr, self._pose_handle_group)
         # create transform nodes as pose handles, and connect with weights,
@@ -175,30 +199,11 @@ class PoseBlend(coreUtility.CoreUtility):
         self._rotate_blend = plus_outputs[1]
         self._scale_blend = plus_outputs[2]
 
-    def register_outputs(self):
-        super(PoseBlend, self).register_outputs()
-        # add pose handle messages
-        attributeUtils.add(self._output_node, self.POSE_HANDLES_ATTR, attribute_type='message', multi=True)
-
-        # add output translation rotation and scale
-        self._output_translate = attributeUtils.add_multi_dimension_attribute(self._output_node,
-                                                                              self.OUTPUT_TRANSLATE_ATTR,
-                                                                              compound_type='double3',
-                                                                              attribute_type='doubleLinear',
-                                                                              suffix='XYZ')
-        self._output_rotate = attributeUtils.add_multi_dimension_attribute(self._output_node, self.OUTPUT_ROTATE_ATTR,
-                                                                           compound_type='double3',
-                                                                           attribute_type='doubleAngle', suffix='XYZ')
-        self._output_scale = attributeUtils.add_multi_dimension_attribute(self._output_node, self.OUTPUT_SCALE_ATTR,
-                                                                          compound_type='double3',
-                                                                          attribute_type='doubleLinear', suffix='XYZ',
-                                                                          default_value=[1, 1, 1])
-
-    def connect_outputs(self):
-        super(PoseBlend, self).connect_outputs()
+    def connect_output_attributes(self):
+        super(PoseBlend, self).connect_output_attributes()
         attributeUtils.connect_nodes_to_multi_attr(self._pose_handles, self.POSE_HANDLES_ATTR,
                                                    driver_attr=attributeUtils.MESSAGE, driven=self._output_node)
-        # connect with constraint
+
         if self._translate:
             attributeUtils.connect(self._translate_blend, self.OUTPUT_TRANSLATE_ATTR, driven=self._output_node)
 

@@ -16,8 +16,8 @@ class PoseReader(coreUtility.CoreUtility):
 
     def __init__(self, **kwargs):
         super(PoseReader, self).__init__(**kwargs)
-        self._driver_vector = kwargs.get('driver_vector', [1, 0, 0])
-        self._reference_points = kwargs.get('reference_points', [])
+        self._driver_vector = None
+        self._reference_points = None
         self._input_matrix = None
 
         self._input_matrix_attr = None
@@ -43,8 +43,29 @@ class PoseReader(coreUtility.CoreUtility):
     def outputs_attr(self):
         return self._outputs_attr
 
-    def register_inputs(self):
-        super(PoseReader, self).register_inputs()
+    def get_build_kwargs(self, **kwargs):
+        super(PoseReader, self).get_build_kwargs(**kwargs)
+        self._reference_points = kwargs.get('reference_points', [])
+
+        self._driver_vector = [1, 0, 0]
+
+    def flip_build_kwargs(self):
+        super(PoseReader, self).flip_build_kwargs()
+        reference_points = []
+        for pnt in self._reference_points:
+            reference_points.append([-pnt[0], -pnt[1], -pnt[2]])
+        self._reference_points = reference_points
+
+    def get_connect_kwargs(self, **kwargs):
+        super(PoseReader, self).get_connect_kwargs(**kwargs)
+        self._input_matrix = kwargs.get('input_matrix', None)
+
+    def flip_connect_kwargs(self):
+        super(PoseReader, self).flip_connect_kwargs()
+        self._input_matrix = namingUtils.flip_names(self._input_matrix)
+
+    def add_input_attributes(self):
+        super(PoseReader, self).add_input_attributes()
         self._input_matrix_attr = attributeUtils.add(self._input_node, self.INPUT_MATRIX_ATTR,
                                                      attribute_type='matrix')[0]
 
@@ -60,6 +81,7 @@ class PoseReader(coreUtility.CoreUtility):
                                                                                    suffix='XYZ',
                                                                                    multi=True)
 
+        # set poses
         cmds.setAttr(self._driver_vector_attr, *self._driver_vector)
         for i, pnt in enumerate(self._reference_points):
             cmds.setAttr('{0}[{1}]'.format(self._reference_points_attr, i), *pnt)
@@ -85,15 +107,15 @@ class PoseReader(coreUtility.CoreUtility):
                                                         name=remap_node)
             self._weights.append(weight_attr)
 
-    def register_outputs(self):
-        super(PoseReader, self).register_outputs()
+    def add_output_attributes(self):
+        super(PoseReader, self).add_output_attributes()
         attributeUtils.add(self._output_node, self.OUTPUTS_ATTR, attribute_type='float', multi=True)
         attributeUtils.connect_nodes_to_multi_attr(self._weights, self.OUTPUTS_ATTR, driven=self._output_node)
         self._outputs_attr = self.get_multi_attr_names(self.OUTPUTS_ATTR, node=self._output_node)
 
-    def get_connection_kwargs(self, **kwargs):
-        super(PoseReader, self).get_connection_kwargs(**kwargs)
-        self._input_matrix = kwargs.get('input_matrix', None)
+    def connect_input_attributes(self):
+        super(PoseReader, self).connect_input_attributes()
+        attributeUtils.connect(self._input_matrix, self._input_matrix_attr)
 
     def get_input_info(self):
         super(PoseReader, self).get_input_info()
@@ -104,7 +126,3 @@ class PoseReader(coreUtility.CoreUtility):
     def get_output_info(self):
         super(PoseReader, self).get_output_info()
         self._outputs_attr = self.get_multi_attr_names(self.OUTPUTS_ATTR, node=self._output_node)
-
-    def connect_inputs(self):
-        super(PoseReader, self).connect_inputs()
-        attributeUtils.connect(self._input_matrix, self._input_matrix_attr)

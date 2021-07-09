@@ -70,7 +70,7 @@ def mult_matrix(*input_matrices, **kwargs):
         force(bool): force the connection, default is True
 
     Returns:
-        output_attr(str): output attribute from the plusMinusAverage node
+        output_attr(str): output attribute from the multMatrix node
     """
     name = kwargs.get('name', 'multMatrix1')
     connect_attr = kwargs.get('connect_attr', None)

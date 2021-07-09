@@ -4,59 +4,168 @@ import inspect
 import maya.cmds as cmds
 
 import utils.common.namingUtils as namingUtils
+import utils.common.moduleUtils as moduleUtils
 import utils.common.attributeUtils as attributeUtils
+import utils.common.hierarchyUtils as hierarchyUtils
 import utils.common.transformUtils as transformUtils
 
 
 class CoreNode(object):
+    """
+    node template class, all rig nodes should sub-class from this class
+
+    it has 3 build sections, build, connect and get_info
+    build: create the rig node in the scene
+    connect: connect the inputs to this rig node
+    get_info: get rig node information from the top node
+    """
     # constant attributes
     INPUT_NODE_ATTR = 'inputNode'
     OUTPUT_NODE_ATTR = 'outputNode'
-
     NODE_PATH_ATTR = 'nodePath'
 
     def __init__(self, **kwargs):
-        # naming kwargs
-        self._side = kwargs.get('side', 'center')
-        self._description = kwargs.get('description', '')
-        self._index = kwargs.get('index', 1)
-        self._limb_index = kwargs.get('limb_index', 1)
-        self._additional_description = kwargs.get('additional_description', None)
-
-        # hierarchy kwargs
-        self._parent_node = kwargs.get('parent_node', None)
+        self._flip = kwargs.get('flip', False)
         # get rig node's python path
         self._node_path = inspect.getmodule(self.__class__).__name__
+        # node type for different naming
+        self._node_type = 'rigNode'
+
+        # build sections
+        self._build_list = {'build': {'functions': {},
+                                      'keys': []},
+                            'connect': {'functions': {},
+                                        'keys': []},
+                            'get_info': {'functions': {},
+                                         'keys': []}}
 
         # hierarchy nodes
         self._node = None
         self._input_node = None
         self._output_node = None
+        self._compute_node = None
 
-        # node type for different naming
-        self._node_type = 'rigNode'
+        # place holder for kwargs
+        self._side = None
+        self._description = None
+        self._index = None
+        self._limb_index = None
+        self._additional_description = []
+        self._parent_node = None
 
+    # properties
     @property
     def node(self):
         return self._node
 
-    @node.setter
-    def node(self, value):
-        self._node = value
+    @property
+    def input_node(self):
+        return self._input_node
+
+    @property
+    def output_node(self):
+        return self._output_node
+
+    @property
+    def compute_node(self):
+        return self._compute_node
 
     @property
     def node_path(self):
         return self._node_path
 
-    def build(self):
-        """
-        build rig node
-        """
-        self.create_hierarchy()
-        self.register_inputs()
-        self.create_node()
-        self.register_outputs()
+    @property
+    def parent_node(self):
+        return self._parent_node
 
+    # get kwargs
+    def get_build_kwargs(self, **kwargs):
+        # naming kwargs
+        self._side = kwargs.get('side', 'center')
+        self._description = kwargs.get('description', '')
+        self._index = kwargs.get('index', 1)
+        self._limb_index = kwargs.get('limb_index', 1)
+        self._additional_description = kwargs.get('additional_description', [])
+
+        # hierarchy kwargs
+        self._parent_node = kwargs.get('parent_node', None)
+
+    def flip_build_kwargs(self):
+        self._side = namingUtils.flip_side(self._side, keep=True)
+        self._parent_node = namingUtils.flip_names(self._parent_node)
+
+    def get_connect_kwargs(self, **kwargs):
+        pass
+
+    def flip_connect_kwargs(self):
+        pass
+
+    # execute functions
+    def build(self, **kwargs):
+        self.get_build_kwargs(**kwargs)
+        if self._flip:
+            self.flip_build_kwargs()
+
+        for key in self._build_list['build']['keys']:
+            self._build_list['build']['functions'][key]()
+
+    def connect(self, **kwargs):
+        self.get_connect_kwargs(**kwargs)
+
+        if self._flip:
+            self.flip_connect_kwargs()
+
+        for key in self._build_list['connect']['keys']:
+            self._build_list['connect']['functions'][key]()
+
+    def get_info(self, node):
+        self._node = node
+
+        for key in self._build_list['get_info']['keys']:
+            self._build_list['get_info']['functions'][key]()
+
+    # register steps to sections
+    def register_steps(self):
+        # build steps
+        self.add_build_step('create hierarchy', self.create_hierarchy, 'build')
+        self.add_build_step('add input attributes', self.add_input_attributes, 'build')
+        self.add_build_step('create node', self.create_node, 'build')
+        self.add_build_step('add output attributes', self.add_output_attributes, 'build')
+
+        # connect steps
+        self.add_build_step('add input attributes post', self.add_input_attributes_post, 'connect')
+        self.add_build_step('create node post', self.create_node_post, 'connect')
+        self.add_build_step('add output attributes post', self.add_output_attributes_post, 'connect')
+        self.add_build_step('connect input attributes', self.connect_input_attributes, 'connect')
+        self.add_build_step('connect output attributes', self.connect_output_attributes, 'connect')
+
+        # get info steps
+        self.add_build_step('get rig node info', self.get_rig_node_info, 'get_info')
+        self.add_build_step('get input info', self.get_input_info, 'get_info')
+        self.add_build_step('get output info', self.get_output_info, 'get_info')
+
+    def add_build_step(self, name, function, section, after=None):
+        """
+        add build step to given section
+
+        Args:
+            name (str): build step's name
+            function: in-class method
+            section (str): add step to the given build section
+            after (int/str): put step after the given step name / index
+        """
+        if after:
+            if isinstance(after, basestring):
+                # get index
+                after = self._build_list[section]['keys'].index(after)
+            # insert step after the given index
+            self._build_list[section]['keys'].insert(after, name)
+        else:
+            self._build_list[section]['keys'].append(name)
+
+        self._build_list[section]['functions'].update({name: function})
+
+    # build functions
     def create_hierarchy(self):
         """
         create node's hierarchy
@@ -67,27 +176,45 @@ class CoreNode(object):
                                          additional_description=self._additional_description)
         transformUtils.create(self._node, lock_hide=attributeUtils.ALL, parent=self._parent_node)
 
-        # create input, output and default value node
+        # create input, output and compute node
         self._input_node = transformUtils.create(namingUtils.update(self._node, type='inputNode'),
                                                  lock_hide=attributeUtils.ALL, parent=self._node)
         self._output_node = transformUtils.create(namingUtils.update(self._node, type='outputNode'),
                                                   lock_hide=attributeUtils.ALL, parent=self._node)
+        self._compute_node = transformUtils.create(namingUtils.update(self._node, type='computeNode'),
+                                                   lock_hide=attributeUtils.ALL, parent=self._node)
 
         # register node path
         attributeUtils.add(self._node, self.NODE_PATH_ATTR, attribute_type='string', default_value=self._node_path,
                            lock_attr=True)
 
-    def create_node(self):
-        """
-        create rig node
-        """
+    def add_input_attributes(self):
         pass
 
-    def get_info(self):
-        """
-        get rig node information
-        """
-        # get name tokens
+    def create_node(self):
+        pass
+
+    def add_output_attributes(self):
+        pass
+
+    # connect functions
+    def add_input_attributes_post(self):
+        pass
+
+    def create_node_post(self):
+        pass
+
+    def add_output_attributes_post(self):
+        pass
+
+    def connect_input_attributes(self):
+        pass
+
+    def connect_output_attributes(self):
+        pass
+
+    # get node info
+    def get_rig_node_info(self):
         name_info = namingUtils.decompose(self._node)
         self._side = name_info.get('side', 'center')
         self._description = name_info.get('description', None)
@@ -98,51 +225,9 @@ class CoreNode(object):
         # get input, output node
         self._input_node = namingUtils.update(self._node, type='inputNode')
         self._output_node = namingUtils.update(self._node, type='outputNode')
+        self._compute_node = namingUtils.update(self._node, type='computeNode')
         # get parent node
-        parent_node = cmds.listRelatives(self._node, parent=True)
-        if parent_node:
-            self._parent_node = parent_node[0]
-        else:
-            self._parent_node = None
-
-        self.get_input_info()
-        self.get_output_info()
-
-    def connect(self, **kwargs):
-        self.get_connection_kwargs(**kwargs)
-        self.post_register_inputs()
-        self.post_build()
-        self.post_register_outputs()
-        self.connect_inputs()
-        self.connect_outputs()
-
-    def get_connection_kwargs(self, **kwargs):
-        pass
-
-    def remove(self):
-        # delete node
-        cmds.delete(self._node)
-
-    def register_inputs(self):
-        pass
-
-    def register_outputs(self):
-        pass
-
-    def post_register_inputs(self):
-        pass
-
-    def post_build(self):
-        pass
-
-    def post_register_outputs(self):
-        pass
-
-    def connect_inputs(self):
-        pass
-
-    def connect_outputs(self):
-        pass
+        self._parent_node = hierarchyUtils.get_parent(self._node)
 
     def get_input_info(self):
         pass
@@ -153,6 +238,16 @@ class CoreNode(object):
     def add_object_attribute(self, attr_name, value):
         setattr(self, attr_name, value)
 
+    # static method functions
+    # set attrs
+    @staticmethod
+    def set_multi_attr_values(attr, values, node=None):
+        attr_path, node, attr_name = attributeUtils.compose_attr(attr, node=node)
+        for i, val in enumerate(values):
+            attr_type = cmds.getAttr('{0}[{1}]'.format(attr_path, i), type=True)
+            attributeUtils.set_value('{0}[{1}]'.format(attr_path, i), val, type=attr_type)
+
+    # get attrs
     @staticmethod
     def get_single_attr_value(attr, node=None):
         attr_path, node, attr_name = attributeUtils.compose_attr(attr, node=node)
@@ -199,17 +294,10 @@ class CoreNode(object):
                 # it's a data compound, get values from available indices
                 values = []
                 for i in indices:
-                    values.append(cmds.getAttr('{}[{}]'.format(attr_path, i)))
+                    values.append(cmds.getAttr('{0}[{1}]'.format(attr_path, i)))
         else:
             values = []
         return values
-
-    @staticmethod
-    def set_multi_attr_values(attr, values, node=None):
-        attr_path, node, attr_name = attributeUtils.compose_attr(attr, node=node)
-        for i, val in enumerate(values):
-            attr_type = cmds.getAttr('{}[{}]'.format(attr_path, i), type=True)
-            attributeUtils.set_value('{}[{}]'.format(attr_path, i), val, type=attr_type)
 
     @staticmethod
     def get_multi_attr_names(attr, node=None):
@@ -219,7 +307,49 @@ class CoreNode(object):
         if indices:
             attrs = []
             for i in indices:
-                attrs.append('{}[{}]'.format(attr_path, i))
+                attrs.append('{0}[{1}]'.format(attr_path, i))
         else:
             attrs = []
         return attrs
+
+    @staticmethod
+    def create_rig_node(node_path, name_template=None, build=True, build_kwargs=None, connect=True, connect_kwargs=None,
+                        flip=False):
+        """
+        create rig node using given module path
+
+        Args:
+            node_path (str): rig node's path
+            name_template (str): get name information from given node
+            build (bool): execute build process if set to True
+            build_kwargs (dict): build arguments
+            connect (bool): execute connect process if set to True
+            connect_kwargs (dict): connect arguments
+            flip (bool): instead building the given side, it will build the opposite side
+
+        Returns:
+            rig_node_object: rig node instance
+        """
+        if name_template:
+            name_info = namingUtils.decompose(name_template)
+        else:
+            name_info = {}
+
+        rig_node_module, rig_node_class = moduleUtils.import_module(node_path)
+        rig_node_object = getattr(rig_node_module, rig_node_class)(flip=flip)
+        if build:
+            if build_kwargs:
+                name_info.update(build_kwargs)
+            build_kwargs = name_info
+
+            rig_node_object.get_build_kwargs(**build_kwargs)
+            rig_node_object.build()
+
+            # connect process need to happens after build, so put it under build if statement
+            if connect:
+                if not connect_kwargs:
+                    connect_kwargs = {}
+                rig_node_object.get_connect_kwargs(**connect_kwargs)
+                rig_node_object.connect()
+
+        return rig_node_object

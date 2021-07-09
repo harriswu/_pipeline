@@ -408,6 +408,93 @@ def unlock(attrs, node=None, keyable=True, channel_box=True):
             cmds.setAttr(attr_path, keyable=keyable)
 
 
+def transfer_attribute(source_attr, target_node, source_node=None, name_override=None, link=False):
+
+    source_attr_path, source_node, source_attr = compose_attr(source_attr, node=source_node)
+
+    # get target attr name
+    if not name_override:
+        target_attr = source_attr
+    else:
+        target_attr = name_override
+
+    # get attribute information
+    attr_kwargs = {'attribute_type': None,
+                   'multi': False}
+
+    # get attribute type
+    attr_type = cmds.attributeQuery(source_attr, node=source_node, type=True)
+    attr_kwargs.update({'attribute_type': attr_type})
+    # check multi
+    multi = cmds.attributeQuery(source_attr, node=source_node, multi=True)
+    attr_kwargs.update({'multi': multi})
+    if multi:
+        # check child attr type
+        attr_type = cmds.getAttr(source_attr_path + '[0]', type=True)
+        attr_kwargs.update({'attribute_type': attr_type})
+
+    # check max and min value
+    value_range = [None, None]
+    max_exists = cmds.attributeQuery(source_attr, node=source_node, maxExists=True)
+    min_exists = cmds.attributeQuery(source_attr, node=source_node, minExists=True)
+    if max_exists:
+        max_val = cmds.attributeQuery(source_attr, node=source_node, maximum=True)[0]
+        value_range[1] = max_val
+    if min_exists:
+        min_val = cmds.attributeQuery(source_attr, node=source_node, minimum=True)[0]
+        value_range[0] = min_val
+    if value_range != [None, None]:
+        attr_kwargs.update({'value_range': value_range})
+
+    # get default value
+    default_val = cmds.attributeQuery(source_attr, node=source_node, listDefault=True)[0]
+    if default_val:
+        attr_kwargs.update({'default_value': default_val})
+
+    # get keyable and channelBox
+    keyable = cmds.attributeQuery(source_attr, node=source_node, keyable=True)
+    channel_box = cmds.attributeQuery(source_attr, node=source_node, channelBox=True)
+    if keyable:
+        channel_box = True
+    attr_kwargs.update({'keyable': keyable,
+                        'channel_box': channel_box})
+
+    # get enum name
+    if attr_type == 'enum':
+        enum_name = cmds.attributeQuery(source_attr, node=source_node, listEnum=True)[0]
+        attr_kwargs.update({'enum_name': enum_name})
+
+    # get children
+    child_attrs = cmds.attributeQuery(source_attr, node=source_node, listChildren=True)
+    if child_attrs:
+        # get attr type
+        child_attr_type = cmds.getAttr(child_attrs[0], type=True)
+        # get suffix
+        suffix = ''
+        for attr in child_attrs:
+            suffix += attr[-1]
+        # add attribute
+        add_multi_dimension_attribute(target_node, target_attr, compound_type=attr_type,
+                                      attribute_type=child_attr_type, suffix=suffix, keyable=keyable, multi=False)
+    else:
+        add(target_node, target_attr, **attr_kwargs)
+
+    target_attr_path = '{0}.{1}'.format(target_node, target_attr)
+
+    if link:
+        if not multi:
+            connect(source_attr_path, target_attr_path)
+        else:
+            # get indexes in use
+            indices = cmds.getAttr(source_attr_path, multiIndices=True)
+            if indices:
+                for i in indices:
+                    connect('{0}[{1}]'.format(source_attr_path, i),
+                            '{0}[{1}]'.format(target_attr_path, i))
+
+    return target_attr_path
+
+
 def transfer_default_attrs_status(source_node, target_nodes):
     """
     check source node's default attributes (translate/rotate/scale/visibility/rotateOrder),
@@ -490,6 +577,18 @@ def link_attrs(source_node, target_nodes, lock_attr=True, exception=None, force=
                 # lock attribute
                 if lock_attr:
                     lock(at, node=trgt_node)
+
+
+def list_channel_box_attrs(node):
+    # get all keyable attributes
+    keyable_attrs = cmds.listAttr(node, keyable=True)
+    if not keyable_attrs:
+        keyable_attrs = []
+    # get all non-keyable but on channel box attributes
+    channel_box_attrs = cmds.listAttr(node, channelBox=True)
+    if not channel_box_attrs:
+        channel_box_attrs = []
+    return keyable_attrs + channel_box_attrs
 
 
 # enum

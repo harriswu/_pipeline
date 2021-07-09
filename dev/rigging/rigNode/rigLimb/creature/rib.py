@@ -17,7 +17,7 @@ class Rib(rotatePlaneIk.RotatePlaneIk):
     def __init__(self, **kwargs):
         super(Rib, self).__init__(**kwargs)
         self._driver_value = None
-        self._twist_multiplier = kwargs.get('twist_multiplier', 0.2)
+        self._twist_multiplier = None
         self._attach_matrix = None
 
         self._driver_value_attr = None
@@ -35,9 +35,26 @@ class Rib(rotatePlaneIk.RotatePlaneIk):
     @property
     def attach_matrix_attr(self):
         return self._attach_matrix_attr
-        
-    def register_inputs(self):
-        super(Rib, self).register_inputs()
+
+    def get_build_kwargs(self, **kwargs):
+        super(Rib, self).get_build_kwargs(**kwargs)
+        self._twist_multiplier = kwargs.get('twist_multiplier', 0.2)
+
+    def flip_build_kwargs(self):
+        super(Rib, self).flip_build_kwargs()
+        self._twist_multiplier *= -1
+
+    def get_connect_kwargs(self, **kwargs):
+        super(Rib, self).get_connect_kwargs(**kwargs)
+        self._driver_value = kwargs.get('driver_value', None)
+        self._attach_matrix = kwargs.get('attach_matrix', None)
+
+    def flip_connect_kwargs(self):
+        super(Rib, self).flip_connect_kwargs()
+        self._attach_matrix = namingUtils.flip_names(self._attach_matrix)
+
+    def add_input_attributes(self):
+        super(Rib, self).add_input_attributes()
         self._driver_value_attr = attributeUtils.add(self._input_node, self.DRIVER_VALUE_ATTR,
                                                      attribute_type='float')[0]
         self._twist_mult_attr = attributeUtils.add(self._input_node, self.TWIST_MULT_ATTR, attribute_type='float',
@@ -51,22 +68,18 @@ class Rib(rotatePlaneIk.RotatePlaneIk):
         nodeUtils.arithmetic.equation('{0}*{1}'.format(self._driver_value_attr, self._twist_mult_attr),
                                       namingUtils.update(self._node, additional_description='bucketHandle'),
                                       connect_attr='{0}.{1}'.format(self._controls[-1], self.TWIST_ATTR))
-        # remove end ik controller's sub control
-        controlUtils.remove_sub(self._controls[-1])
-        # lock hide all
-        attributeUtils.lock(attributeUtils.TRANSFORM + [self.TWIST_ATTR], node=self._controls[-1])
+        for ctrl in self._controls:
+            # remove controller's sub control
+            controlUtils.remove_sub(ctrl)
+            # lock hide all
+            # get all channel box attributes
+            attrs = attributeUtils.list_channel_box_attrs(ctrl)
+            attributeUtils.lock(attrs, node=ctrl)
+            # hide controller
+            controlUtils.hide_controller(ctrl)
 
-        # hide controller
-        cmds.setAttr('{0}.{1}'.format(controlUtils.get_hierarchy_node(self._controls[-1], 'zero'),
-                                      attributeUtils.VISIBILITY), 0)
-
-    def get_connection_kwargs(self, **kwargs):
-        super(Rib, self).get_connection_kwargs(**kwargs)
-        self._driver_value = kwargs.get('driver_value', None)
-        self._attach_matrix = kwargs.get('attach_matrix', None)
-        
-    def connect_inputs(self):
-        super(Rib, self).connect_inputs()
+    def connect_input_attributes(self):
+        super(Rib, self).connect_input_attributes()
         attributeUtils.connect(self._driver_value, self._driver_value_attr)
         # attach end controller with given matrix
         attributeUtils.connect(self._attach_matrix, self._attach_matrix_attr)

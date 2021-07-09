@@ -69,6 +69,24 @@ def parent_chain(nodes, parent_node=None, reverse=False):
     return nodes_return
 
 
+def get_parent(node):
+    """
+    get node's parent node
+
+    Args:
+        node (str): node's name
+
+    Returns:
+        parent_node (str): parent node's name
+    """
+    parent_node = cmds.listRelatives(node, parent=True)
+    if parent_node:
+        parent_node = parent_node[0]
+    else:
+        parent_node = None
+    return parent_node
+
+
 def get_all_parents(node, root=None):
     """
     get all parent nodes from the given root node, the order is from the top to the bottom

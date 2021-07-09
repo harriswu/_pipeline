@@ -21,12 +21,12 @@ class SplineIk(ikHandleLimb.IkHandle):
 
     def __init__(self, **kwargs):
         super(SplineIk, self).__init__(**kwargs)
-        self._guide_curve = kwargs.get('guide_curve', '')
-        self._guide_controls = kwargs.get('guide_controls', [])
-        self._additional_description = kwargs.get('additional_description', 'splineIk')
-        self._control_manip_orient = kwargs.get('control_manip_orient', None)
-        self._curve_skin_cluster = kwargs.get('curve_skin_cluster', '')
-        self._root_local_control = kwargs.get('root_local_control', True)
+        self._guide_curve = None
+        self._guide_controls = None
+        self._additional_description = None
+        self._control_manip_orient = None
+        self._curve_skin_cluster = None
+        self._root_local_control = None
 
         self._iks = []
         self._curves = None
@@ -37,6 +37,21 @@ class SplineIk(ikHandleLimb.IkHandle):
     def curves(self):
         return self._curves
 
+    def get_build_kwargs(self, **kwargs):
+        super(SplineIk, self).get_build_kwargs(**kwargs)
+        self._guide_curve = kwargs.get('guide_curve', '')
+        self._guide_controls = kwargs.get('guide_controls', [])
+        self._additional_description = kwargs.get('additional_description', ['splineIk'])
+        self._control_manip_orient = kwargs.get('control_manip_orient', None)
+        self._curve_skin_cluster = kwargs.get('curve_skin_cluster', '')
+        self._root_local_control = kwargs.get('root_local_control', True)
+
+    def flip_connect_kwargs(self):
+        super(SplineIk, self).flip_connect_kwargs()
+        self._guide_curve = namingUtils.flip(self._guide_curve)
+        self._guide_controls = namingUtils.flip(self._guide_controls)
+        self._control_manip_orient = namingUtils.flip(self._control_manip_orient)
+
     def create_setup(self):
         super(SplineIk, self).create_setup()
         self.add_twist()
@@ -46,16 +61,13 @@ class SplineIk(ikHandleLimb.IkHandle):
             self._control_manip_orient = [self._control_manip_orient] * len(self._guide_controls)
 
         # create controllers and joints to control the curve
-        tag_parent = self._tag_parent
         for guide, manip_orient in zip(self._guide_controls, self._control_manip_orient):
             name_info = namingUtils.decompose(guide)
             # create controller
             ctrl = controlUtils.create(name_info['description'], side=name_info['side'], index=name_info['index'],
                                        limb_index=name_info['limb_index'], additional_description=None, sub=True,
                                        parent=self._controls_group, position=guide, rotate_order=0,
-                                       manip_orient=manip_orient, lock_hide=attributeUtils.SCALE,
-                                       shape=self._control_shape, color=self._control_color, size=self._control_size,
-                                       tag=self._tag_control, tag_parent=tag_parent)
+                                       manip_orient=manip_orient, lock_hide=attributeUtils.SCALE)
             self._controls.append(ctrl)
 
             # create joint
@@ -69,8 +81,6 @@ class SplineIk(ikHandleLimb.IkHandle):
             constraintUtils.position_constraint('{0}.{1}'.format(ctrl, controlUtils.OUT_MATRIX_ATTR), zero_jnt,
                                                 maintain_offset=False)
             self._curve_joints.append(jnt)
-            # override tag parent
-            tag_parent = ctrl
 
         # create root control
         if self._root_local_control:
@@ -81,9 +91,6 @@ class SplineIk(ikHandleLimb.IkHandle):
                                                      parent=self._controls[0], position=self._joints[0],
                                                      rotate_order=0,
                                                      lock_hide=attributeUtils.TRANSLATE + attributeUtils.SCALE,
-                                                     shape=self._control_shape, color=self._control_color,
-                                                     size=self._control_size, tag=self._tag_control,
-                                                     tag_parent=self._controls[0],
                                                      input_matrix='{0}.{1}'.format(self._controls[0],
                                                                                    controlUtils.OUT_MATRIX_ATTR))
             # add vis switch on ik controller
@@ -125,7 +132,7 @@ class SplineIk(ikHandleLimb.IkHandle):
         # bind with the curve
         if self._curve_skin_cluster:
             # load skin cluster
-            deformerUtils.skinCluster.import_data(self._curve_skin_cluster, geo=self._curves[0])
+            deformerUtils.skinCluster.import_data(self._curve_skin_cluster, geo=self._curves[0], flip=self._flip)
         else:
             # give it a default skin cluster
             skin = namingUtils.update(self._curves[0], type='skinCluster')
@@ -190,8 +197,8 @@ class SplineIk(ikHandleLimb.IkHandle):
             attributeUtils.connect(attributeUtils.TRANSFORM, attributeUtils.TRANSFORM,
                                    driver=setup_jnt, driven=jnt)
 
-    def register_outputs(self):
-        super(SplineIk, self).register_outputs()
+    def add_output_attributes(self):
+        super(SplineIk, self).add_output_attributes()
         attributeUtils.add(self._output_node, self.CURVES_ATTR, attribute_type='message', multi=True)
         attributeUtils.connect_nodes_to_multi_attr(self._curves, self.CURVES_ATTR, driver_attr=attributeUtils.MESSAGE,
                                                    driven=self._output_node)

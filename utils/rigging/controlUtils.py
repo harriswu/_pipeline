@@ -617,6 +617,38 @@ def create(description, side='center', index=1, limb_index=None, additional_desc
     return ctrl
 
 
+def hide_controller(ctrl, shape=False):
+    if not shape:
+        zero = get_hierarchy_node(ctrl, 'zero')
+        attributeUtils.set_value(attributeUtils.VISIBILITY, 0, node=zero)
+    else:
+        # get shape node
+        shapes = cmds.listRelatives(ctrl, shapes=True)
+        # get sub controller
+        sub = get_hierarchy_node(ctrl, 'sub')
+        if sub:
+            shapes += cmds.listRelatives(sub, shapes=True)
+
+        for s in shapes:
+            attributeUtils.set_value(attributeUtils.VISIBILITY, 0, node=s)
+
+
+def show_controller(ctrl, shape=False):
+    if not shape:
+        zero = get_hierarchy_node(ctrl, 'zero')
+        attributeUtils.set_value(attributeUtils.VISIBILITY, 1, node=zero)
+    else:
+        # get shape node
+        shapes = cmds.listRelatives(ctrl, shapes=True)
+        # get sub controller
+        sub = get_hierarchy_node(ctrl, 'sub')
+        if sub:
+            shapes += cmds.listRelatives(sub, shapes=True)
+
+        for s in shapes:
+            attributeUtils.set_value(attributeUtils.VISIBILITY, 1, node=s)
+
+
 def get_hierarchy(ctrl):
     """
     get controller's hierarchy

@@ -434,6 +434,28 @@ def check(name):
         return False
 
 
+def flip_side(side, keep=True):
+    if isinstance(side, basestring):
+        if side == 'left':
+            side_flip = 'right'
+        elif side == 'right':
+            side_flip = 'left'
+        elif not keep:
+            side_flip = None
+        else:
+            side_flip = side
+    else:
+        if side[0] == 'left':
+            side_flip = ['right'] + side[1:]
+        elif side[0] == 'right':
+            side_flip = ['left'] + side[1:]
+        elif not keep:
+            side_flip = None
+        else:
+            side_flip = side
+    return side_flip
+
+
 def flip(name, keep=True):
     """
     flip the given name from one side to the other
@@ -466,6 +488,14 @@ def flip(name, keep=True):
         name = namingUtils.flip('locator1', keep=False)
         print(name)  # None
     """
+    # check if name is an attribute name
+    attr_names = []
+    if isinstance(name, basestring):
+        name_split = name.split('.')
+        name = name_split[0]
+        if len(name_split) > 1:
+            attr_names = name_split[1:]
+
     # check if name is valid
     name_valid = check(name)
 
@@ -474,23 +504,11 @@ def flip(name, keep=True):
         tokens_info = decompose(name)
         # check side
         if tokens_info['side']:
-            if isinstance(tokens_info['side'], basestring) and tokens_info['side'] != 'center':
-                # if side only contains primary side, flip the side directly
-                if tokens_info['side'] == 'left':
-                    tokens_info['side'] = 'right'
-                else:
-                    tokens_info['side'] = 'left'
+            side = flip_side(tokens_info['side'], keep=keep)
+            if side:
+                tokens_info['side'] = side
                 name = compose(**tokens_info)
-
-            elif isinstance(tokens_info['side'], list) and tokens_info['side'][0] != 'center':
-                # if side token is a list, flip the primary side
-                if tokens_info['side'][0] == 'left':
-                    tokens_info['side'][0] = 'right'
-                else:
-                    tokens_info['side'][0] = 'left'
-                name = compose(**tokens_info)
-
-            elif not keep:
+            else:
                 name = None
 
         elif not keep:
@@ -501,7 +519,26 @@ def flip(name, keep=True):
         # set name to None to return
         name = None
 
+    # add attributes name back
+    if name and attr_names:
+        name = '.'.join([name] + attr_names)
+
     return name
+
+
+def flip_names(names):
+    if names:
+        if isinstance(names, basestring):
+            name_flip = flip(names, keep=True)
+        elif isinstance(names, list):
+            name_flip = [flip(n, keep=True) for n in names]
+        elif isinstance(names, dict):
+            name_flip = {k: flip(n, keep=True) for k, n in names.iteritems()}
+        else:
+            name_flip = names
+    else:
+        name_flip = names
+    return name_flip
 
 
 def compose_sequence(number, type=None, side=None, lod=None, description=None, start_index=1, limb_index=None):
