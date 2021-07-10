@@ -9,6 +9,7 @@ import maya.cmds as cmds
 import utils.common.namingUtils as namingUtils
 import utils.common.attributeUtils as attributeUtils
 import utils.common.transformUtils as transformUtils
+import utils.common.duplicateUtils as duplicateUtils
 import utils.common.nodeUtils as nodeUtils
 import utils.modeling.curveUtils as curveUtils
 import utils.rigging.jointUtils as jointUtils
@@ -31,7 +32,6 @@ class CurveChain(coreLimb.CoreLimb):
         self._guide_controls = None
         self._control_manip_orient = None
         self._curve_skin_cluster = None
-        self._global_scale_attr = None
         self._uniform = None
 
         self._twist_curve_data = None
@@ -69,7 +69,6 @@ class CurveChain(coreLimb.CoreLimb):
         self._additional_description = kwargs.get('additional_description', ['curveChain'])
         self._control_manip_orient = kwargs.get('control_manip_orient', None)
         self._curve_skin_cluster = kwargs.get('curve_skin_cluster', '')
-        self._global_scale_attr = kwargs.get('global_scale_attr', None)
         self._uniform = kwargs.get('uniform', True)
         self._aim_type = kwargs.get('aim_type', 'tangent')
 
@@ -271,23 +270,27 @@ class CurveChain(coreLimb.CoreLimb):
     def add_volume(self):
         # add volume preservation
         if self._volume:
-            # create curve info node
-            curve_info = cmds.createNode('curveInfo', name=namingUtils.update(self._curve, type='curveInfo'))
-            # get curve shape node
-            curve_shape = cmds.listRelatives(self._curve, shapes=True)[0]
-            # connect to curve info
-            cmds.connectAttr(curve_shape + '.worldSpace[0]', curve_info + '.inputCurve')
-            # get curve length
-            curve_length = cmds.getAttr(curve_info + '.arcLength')
-            # connect curve length with global scale attr
-            if self._global_scale_attr:
-                curve_length = nodeUtils.arithmetic.equation('{0} * {1}'.format(curve_length, self._global_scale_attr),
-                                                             namingUtils.update(self._curve,
-                                                                                additional_description='scale'))
-            # get stretch ratio
-            stretch_ratio = nodeUtils.arithmetic.equation('{0}/{1}'.format(curve_length, curve_info + '.arcLength'),
-                                                          namingUtils.update(self._curve,
-                                                                             additional_description='stretchRatio'))
+            # duplicate curve as reference
+            ref_curve = duplicateUtils.duplicate_clean(self._curve,
+                                                       name=namingUtils.update(self._curve,
+                                                                               additional_description='reference'),
+                                                       parent=self._nodes_hide_group)
+            # create curve info nodes
+            curve_info_nodes = []
+            for crv in [self._curve, ref_curve]:
+                curve_info = cmds.createNode('curveInfo', name=namingUtils.update(crv, type='curveInfo',
+                                                                                  additional_description='stretch'))
+                # get curve shape node
+                curve_shape = cmds.listRelatives(self._curve, shapes=True)[0]
+                # connect to curve info
+                cmds.connectAttr(curve_shape + '.worldSpace[0]', curve_info + '.inputCurve')
+
+                curve_info_nodes.append(curve_info)
+
+            # divide to get stretch weight
+            name = namingUtils.update(self._curve, additional_description='stretchWeight')
+            stretch_weight_attr = nodeUtils.arithmetic.equation('{0}.distance/{1}'.format(curve_info_nodes[0],
+                                                                                          curve_info_nodes[1]), name)
 
             # add volume control attr
             cmds.addAttr(self._controls[0], longName='volume', attributeType='float', minValue=0, defaultValue=1,
@@ -299,7 +302,7 @@ class CurveChain(coreLimb.CoreLimb):
                 weight_attr = attributeUtils.add(joint, 'volumeWeight', attribute_type='float', default_value=w,
                                                  keyable=False, channel_box=True)[0]
                 # connect with stretch ratio to get volume preservation
-                vol_attr = nodeUtils.arithmetic.equation('{0}**({1}*{2})'.format(stretch_ratio, weight_attr,
+                vol_attr = nodeUtils.arithmetic.equation('{0}**({1}*{2})'.format(stretch_weight_attr, weight_attr,
                                                                                  self._controls[0] + '.volume'),
                                                          namingUtils.update(joint, additional_description='volume'))
                 # connect with scale attr

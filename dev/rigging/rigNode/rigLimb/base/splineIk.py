@@ -3,6 +3,7 @@ import maya.cmds as cmds
 import utils.common.namingUtils as namingUtils
 import utils.common.attributeUtils as attributeUtils
 import utils.common.transformUtils as transformUtils
+import utils.common.duplicateUtils as duplicateUtils
 import utils.common.nodeUtils as nodeUtils
 import utils.modeling.curveUtils as curveUtils
 import utils.rigging.jointUtils as jointUtils
@@ -18,6 +19,11 @@ class SplineIk(ikHandleLimb.IkHandle):
     CURVES_ATTR = 'curves'
     ROOT_LOCAL_CONTROL_ATTR = 'rootLocalControl'
     ROOT_LOCAL_CONTROL_VIS_ATTR = 'localCtrlVis'
+    STRETCH_ATTR = 'stretch'
+    STRETCH_CLAMP_MIN_ATTR = 'stretchClampMin'
+    STRETCH_MIN_ATTR = 'stretchMin'
+    STRETCH_CLAMP_MAX_ATTR = 'stretchClampMax'
+    STRETCH_MAX_ATTR = 'stretchMax'
 
     def __init__(self, **kwargs):
         super(SplineIk, self).__init__(**kwargs)
@@ -33,6 +39,18 @@ class SplineIk(ikHandleLimb.IkHandle):
         self._curve_joints = []
         self._root_control = None
 
+        self._stretch = None
+        self._stretch_clamp_min = None
+        self._stretch_min = None
+        self._stretch_clamp_max = None
+        self._stretch_max = None
+
+        self._stretch_attr = None
+        self._stretch_clamp_min_attr = None
+        self._stretch_min_attr = None
+        self._stretch_clamp_max_attr = None
+        self._stretch_max_attr = None
+
     @property
     def curves(self):
         return self._curves
@@ -46,6 +64,12 @@ class SplineIk(ikHandleLimb.IkHandle):
         self._curve_skin_cluster = kwargs.get('curve_skin_cluster', '')
         self._root_local_control = kwargs.get('root_local_control', True)
 
+        self._stretch = kwargs.get('stretch', False)
+        self._stretch_clamp_min = kwargs.get('stretch_clamp_min', 1)
+        self._stretch_min = kwargs.get('stretch_min', 1)
+        self._stretch_clamp_max = kwargs.get('stretch_clamp_max', 0)
+        self._stretch_max = kwargs.get('stretch_max', 2)
+
     def flip_connect_kwargs(self):
         super(SplineIk, self).flip_connect_kwargs()
         self._guide_curve = namingUtils.flip(self._guide_curve)
@@ -55,6 +79,8 @@ class SplineIk(ikHandleLimb.IkHandle):
     def create_setup(self):
         super(SplineIk, self).create_setup()
         self.add_twist()
+        if self._stretch:
+            self.add_stretch()
 
     def create_controls(self):
         if not isinstance(self._control_manip_orient, list):
@@ -98,6 +124,27 @@ class SplineIk(ikHandleLimb.IkHandle):
                                           attribute_type='bool', keyable=False, channel_box=True)[0]
             zero = controlUtils.get_hierarchy_node(self._root_control, 'zero')
             cmds.connectAttr(vis_attr, '{0}.{1}'.format(zero, attributeUtils.VISIBILITY))
+
+        # add stretch attr
+        if self._stretch:
+            attributeUtils.add(self._controls[-1], self.STRETCH_ATTR, attribute_type='float', value_range=[0, 1],
+                               default_value=0, keyable=True)
+            attributeUtils.add(self._controls[-1], self.STRETCH_MIN_ATTR, attribute_type='float',
+                               value_range=[0, 1],
+                               default_value=self._stretch_min, keyable=True)
+            attributeUtils.add(self._controls[-1], self.STRETCH_MAX_ATTR, attribute_type='float',
+                               value_range=[1, None],
+                               default_value=self._stretch_max, keyable=True)
+            attributeUtils.add(self._input_node,
+                               [self.STRETCH_CLAMP_MIN_ATTR, self.STRETCH_CLAMP_MAX_ATTR],
+                               attribute_type='float', value_range=[0, 1],
+                               default_value=[self._stretch_clamp_min, self._stretch_clamp_max], keyable=True)
+
+            attributeUtils.connect([self.STRETCH_ATTR, self.STRETCH_MIN_ATTR, self.STRETCH_MAX_ATTR,
+                                    self.STRETCH_CLAMP_MIN_ATTR, self.STRETCH_CLAMP_MAX_ATTR],
+                                   [self.STRETCH_ATTR, self.STRETCH_MIN_ATTR, self.STRETCH_MAX_ATTR,
+                                    self.STRETCH_CLAMP_MIN_ATTR, self.STRETCH_CLAMP_MAX_ATTR],
+                                   driver=self._controls[-1], driven=self._input_node)
 
     def create_ik(self):
         # create curve from guide
@@ -170,6 +217,54 @@ class SplineIk(ikHandleLimb.IkHandle):
         nodeUtils.arithmetic.equation('{0} - {1}'.format(twist_plugs[1], twist_plugs[0]),
                                       namingUtils.update(self._iks[0], additional_description='twist'),
                                       connect_attr=self._iks[0] + '.twist')
+
+    def add_stretch(self):
+        # duplicate curve as reference curve for scale
+        ref_curve = duplicateUtils.duplicate_clean(self._curves[-1],
+                                                   name=namingUtils.update(self._curves[-1],
+                                                                           additional_description='reference'),
+                                                   parent=self._nodes_hide_group)
+
+        # use curve info node to get curve length
+        curve_info_nodes = []
+        for crv in [self._curves[-1], ref_curve]:
+            curve_info = nodeUtils.create('curveInfo', namingUtils.update(crv, type='curveInfo',
+                                                                          additional_description='stretchLength'))
+            shape = cmds.listRelatives(crv, shapes=True)[0]
+            cmds.connectAttr(shape + '.worldSpace[0]', curve_info + '.inputCurve')
+            curve_info_nodes.append(curve_info)
+
+        # divide to get stretch weight
+        stretch_weight_attr = nodeUtils.arithmetic.equation('{0}.distance/{1}'.format(curve_info_nodes[0],
+                                                                                      curve_info_nodes[1]),
+                                                            namingUtils.update(self._curves[-1],
+                                                                               additional_description='stretchWeight'))
+
+        # use blender node to blend min and max values
+        name = namingUtils.update(self._curves[-1], type='blendColors', additional_description='stretchMaxClamp')
+        blend_max = nodeUtils.utility.blend_colors(self._stretch_clamp_max_attr, self._stretch_max_attr,
+                                                   stretch_weight_attr, name=name) + 'R'
+
+        name = namingUtils.update(self._curves[-1], type='blendColors', additional_description='stretchMinClamp')
+        blend_min = nodeUtils.utility.blend_colors(self._stretch_clamp_min_attr, self._stretch_min_attr,
+                                                   stretch_weight_attr, name=name) + 'R'
+
+        # use remap to clamp the value
+        remap_stretch = nodeUtils.utility.remap_value(stretch_weight_attr,
+                                                      [self._stretch_min_attr, self._stretch_max_attr],
+                                                      [blend_min, blend_max],
+                                                      name=namingUtils.update(self._curves[-1], type='remapValue',
+                                                                              additional_description='stretchWeight'))
+
+        # blend with original weight value to turn it on and off
+        name = namingUtils.update(self._curves[-1], type='blendColors', additional_description='stretchWeight')
+        blend_stretch = nodeUtils.utility.blend_colors(self._stretch_attr, remap_stretch, 1, name=name) + 'R'
+        # loop into each setup node and multiply translate X to do stretch
+        for node in self._setup_nodes[1:]:
+            tx_val = cmds.getAttr(node + '.translateX')
+            nodeUtils.arithmetic.equation('{0}*{1}'.format(tx_val, blend_stretch),
+                                          namingUtils.update(node, additional_description='stretch'),
+                                          connect_attr=node + '.translateX')
 
     def connect_to_joints(self):
         if self._root_local_control:
