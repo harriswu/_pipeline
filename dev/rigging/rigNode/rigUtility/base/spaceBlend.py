@@ -23,6 +23,7 @@ class SpaceBlend(coreUtility.CoreUtility):
         self._rotate = None
         self._scale = None
         self._parent_inverse_matrices = None
+        self._maintain_offset = None
         self._defaults = None
         self._input_space_attrs = None
         self._input_blend_attr = None
@@ -62,6 +63,7 @@ class SpaceBlend(coreUtility.CoreUtility):
         self._rotate = kwargs.get('rotate', True)
         self._scale = kwargs.get('scale', False)
         self._parent_inverse_matrices = kwargs.get('parent_inverse_matrices', None)
+        self._maintain_offset = kwargs.get('maintain_offset', True)
         self._defaults = kwargs.get('defaults', [])
         self._input_space_attrs = kwargs.get('input_space_attrs', None)
         self._input_blend_attr = kwargs.get('input_blend_attr', None)
@@ -174,7 +176,8 @@ class SpaceBlend(coreUtility.CoreUtility):
                 cons_node = constraintUtils.position_constraint([choices[0] + '.output', choices[1] + '.output'],
                                                                 None,
                                                                 weights=[self._blend_attrs[-1], self._blend_attrs[0]],
-                                                                parent_inverse_matrices=invs_mtx, maintain_offset=False,
+                                                                parent_inverse_matrices=invs_mtx,
+                                                                maintain_offset=self._maintain_offset,
                                                                 skip=skip_attrs, force=True, constraint_only=True,
                                                                 parent=self._position_constraints_group,
                                                                 constraint_name=cons_name)[0]

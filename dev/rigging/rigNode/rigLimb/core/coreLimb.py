@@ -372,7 +372,6 @@ class CoreLimb(coreNode.CoreNode):
         if self._offset_matrix and isinstance(self._offset_matrix, basestring):
             attributeUtils.connect(self._offset_matrix, self._offset_matrix_attr)
 
-
     def tag_controllers(self):
         if self._tag_controls:
             tag_parent = self._tag_parent

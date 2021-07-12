@@ -46,8 +46,8 @@ class FkChain(coreLimb.CoreLimb):
         parent = self._controls_group
         # get guide joints info
         guides = self._guide_joints
-        if not self._control_end_joint and len(self._guide_joints) > 1:
-            guides = self._guide_joints[:-1]
+        if not self._control_end_joint and len(guides) > 1:
+            guides = guides[:-1]
 
         # loop into each guide joint and create fk controller
         input_matrix = self._input_hierarchy_matrix_attr
