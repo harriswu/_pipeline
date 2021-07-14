@@ -162,45 +162,6 @@ def decompose_matrix(matrix, rotate_order=0):
     return apiUtils.MMatrix.decompose(m_matrix, rotate_order=rotate_order)
 
 
-def twist_extraction(input_matrix, axis='x'):
-    """
-    extract twist value from input matrix
-
-    Args:
-        input_matrix (str): input matrix attribute
-        axis (str): axis need to extracted, default is x
-
-    Returns:
-        twist_attr (str): twist attribute path
-    """
-    # create decompose matrix and quat to euler node
-    decompose = cmds.createNode('decomposeMatrix')
-    quat_euler = cmds.createNode('quatToEuler')
-
-    twist_nodes = [decompose, quat_euler]
-
-    # rename nodes if follow naming convention
-    # get node name
-    attr_path, node, attr_name = attributeUtils.check_exists(input_matrix)
-    # check if node's name is following naming convention, if so, store nodes name in a list for further usage
-    if namingUtils.check(node):
-        twist_nodes[0] = cmds.rename(twist_nodes[0],
-                                     namingUtils.update(node, type='decomposeMatrix',
-                                                        additional_description='twistExtract' + axis.upper()))
-        twist_nodes[1] = cmds.rename(twist_nodes[1],
-                                     namingUtils.update(node, type='quatToEuler',
-                                                        additional_description='twistExtract' + axis.upper()))
-
-    # connect input matrix with decompose matrix
-    cmds.connectAttr(input_matrix, twist_nodes[0] + '.inputMatrix')
-    # connect quat values to quat to euler
-    cmds.connectAttr('{0}.outputQuat{1}'.format(twist_nodes[0], axis.upper()),
-                     '{0}.inputQuat{1}'.format(twist_nodes[1], axis.upper()))
-    cmds.connectAttr(twist_nodes[0] + '.outputQuatW', twist_nodes[1] + '.inputQuatW')
-    # return twist attr
-    return '{0}.outputRotate{1}'.format(twist_nodes[1], axis.upper())
-
-
 def bounding_box(nodes):
     """
     get given nodes/pos bounding box info

@@ -1,5 +1,6 @@
 import maya.cmds as cmds
 
+import utils.common.namingUtils as namingUtils
 import utils.common.attributeUtils as attributeUtils
 
 
@@ -122,6 +123,60 @@ def inverse_matrix(input_matrix, **kwargs):
     cmds.connectAttr(input_matrix, matrix_node + '.inputMatrix')
 
     output_attr = matrix_node + '.outputMatrix'
+
+    # connect output
+    if connect_attr:
+        attributeUtils.connect(output_attr, connect_attr, force=force)
+
+    return output_attr
+
+
+def twist_extraction(input_matrix, axis='x', additional_description=None, connect_attr=None, force=None):
+    """
+    extract twist value from input matrix
+
+    Args:
+        input_matrix (str): input matrix attribute
+        axis (str/list): axis need to extracted, default is x
+        additional_description (str): additional description add to utility nodes
+        connect_attr(str/list): connect the plusMinusAverage output to given attrs
+        force(bool): force the connection, default is True
+
+    Returns:
+        output_attr (str): twist attribute path
+    """
+    if not additional_description:
+        additional_description = 'twistExtract'
+    elif isinstance(additional_description, list):
+        additional_description = ''.join(additional_description)
+
+    # create decompose matrix and quat to euler node
+    decompose = cmds.createNode('decomposeMatrix')
+    quat_euler = cmds.createNode('quatToEuler')
+
+    twist_nodes = [decompose, quat_euler]
+
+    # rename nodes if follow naming convention
+    # get node name
+    attr_path, node, attr_name = attributeUtils.check_exists(input_matrix)
+    # check if node's name is following naming convention, if so, store nodes name in a list for further usage
+    if namingUtils.check(node):
+        twist_nodes[0] = cmds.rename(twist_nodes[0],
+                                     namingUtils.update(node, type='decomposeMatrix',
+                                                        additional_description=additional_description + axis.upper()))
+        twist_nodes[1] = cmds.rename(twist_nodes[1],
+                                     namingUtils.update(node, type='quatToEuler',
+                                                        additional_description=additional_description + axis.upper()))
+
+    # connect input matrix with decompose matrix
+    cmds.connectAttr(input_matrix, twist_nodes[0] + '.inputMatrix')
+    # connect quat values to quat to euler
+    cmds.connectAttr('{0}.outputQuat{1}'.format(twist_nodes[0], axis.upper()),
+                     '{0}.inputQuat{1}'.format(twist_nodes[1], axis.upper()))
+    cmds.connectAttr(twist_nodes[0] + '.outputQuatW', twist_nodes[1] + '.inputQuatW')
+
+    # get twist attr as output attr
+    output_attr = '{0}.outputRotate{1}'.format(twist_nodes[1], axis.upper())
 
     # connect output
     if connect_attr:

@@ -2,6 +2,7 @@
 import math
 import numpy
 import matrix
+import numeric
 
 
 def get_distance(point_a, point_b):
@@ -49,6 +50,25 @@ def get_point_from_vector(vector, start_pos, distance=1):
     vector = [vector[0] * distance, vector[1] * distance, vector[2] * distance]
     output_point = [start_pos[0] + vector[0], start_pos[1] + vector[1], start_pos[2] + vector[2]]
     return output_point
+
+
+def linear_space(start_point, end_point, number=5):
+    """
+    evenly spaced points, calculated over the interval [start, stop]
+
+    Args:
+        start_point (list): start point position
+        end_point (list): end point position
+        number (int): number of points need to be evenly spaced, start and end point included
+
+    Returns:
+        output_points (list): output points positions
+    """
+    output_x = numeric.linear_space(start_point[0], end_point[0], number=number)
+    output_y = numeric.linear_space(start_point[1], end_point[1], number=number)
+    output_z = numeric.linear_space(start_point[2], end_point[2], number=number)
+    output_points = zip(output_x, output_y, output_z)
+    return output_points
 
 
 def mult_matrix(point, input_matrix, output_type='list'):

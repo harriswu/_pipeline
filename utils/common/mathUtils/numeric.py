@@ -1,3 +1,6 @@
+import numpy
+
+
 # function
 def clamp(value, clamp_range):
     """
@@ -55,3 +58,19 @@ def remap(value, input_range, output_range):
     value = (output_range[1] - output_range[0])*weight + output_range[0]
 
     return value
+
+
+def linear_space(start_value, end_value, number=5):
+    """
+    evenly spaced values, calculated over the interval [start, stop]
+
+    Args:
+        start_value (float): start value
+        end_value (float): end value
+        number (int): number of values need to be evenly spaced, start and end values included
+
+    Returns:
+        outputs (list): output values
+    """
+    outputs = numpy.linspace(start_value, end_value, num=number).tolist()
+    return outputs

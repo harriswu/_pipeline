@@ -26,7 +26,7 @@ def equation(expression, template_name, connect_attr=None, force=True):
 
     Args:
         expression (str): given equation to make the connection
-        template_name (str): use this name as a template, the fucntion will change the name type base on the node it use
+        template_name (str): use this name as a template, the function will change the name type base on the node it use
         connect_attr(str/list): connect the equation to given attrs
         force(bool): force the connection, default is True
 

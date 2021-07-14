@@ -1,5 +1,4 @@
 import ast
-import inspect
 
 import maya.cmds as cmds
 
@@ -9,8 +8,10 @@ import utils.common.attributeUtils as attributeUtils
 import utils.common.hierarchyUtils as hierarchyUtils
 import utils.common.transformUtils as transformUtils
 
+import dev.rigging.rigFunction.core.coreFunction as coreFunction
 
-class CoreNode(object):
+
+class CoreNode(coreFunction.CoreFunction):
     """
     node template class, all rig nodes should sub-class from this class
 
@@ -25,19 +26,13 @@ class CoreNode(object):
     NODE_PATH_ATTR = 'nodePath'
 
     def __init__(self, **kwargs):
-        self._flip = kwargs.get('flip', False)
-        # get rig node's python path
-        self._node_path = inspect.getmodule(self.__class__).__name__
+        super(CoreNode, self).__init__(**kwargs)
         # node type for different naming
         self._node_type = 'rigNode'
 
         # build sections
-        self._build_list = {'build': {'functions': {},
-                                      'keys': []},
-                            'connect': {'functions': {},
-                                        'keys': []},
-                            'get_info': {'functions': {},
-                                         'keys': []}}
+        self._build_list.update({'get_info': {'functions': {},
+                                              'keys': []}})
 
         # hierarchy nodes
         self._node = None
@@ -71,15 +66,12 @@ class CoreNode(object):
         return self._compute_node
 
     @property
-    def node_path(self):
-        return self._node_path
-
-    @property
     def parent_node(self):
         return self._parent_node
 
     # get kwargs
     def get_build_kwargs(self, **kwargs):
+        super(CoreNode, self).get_build_kwargs(**kwargs)
         # naming kwargs
         self._side = kwargs.get('side', 'center')
         self._description = kwargs.get('description', '')
@@ -91,33 +83,19 @@ class CoreNode(object):
         self._parent_node = kwargs.get('parent_node', None)
 
     def flip_build_kwargs(self):
+        super(CoreNode, self).flip_build_kwargs()
         self._side = namingUtils.flip_side(self._side, keep=True)
         self._parent_node = namingUtils.flip_names(self._parent_node)
 
     def get_connect_kwargs(self, **kwargs):
+        super(CoreNode, self).get_connect_kwargs(**kwargs)
         pass
 
     def flip_connect_kwargs(self):
+        super(CoreNode, self).flip_connect_kwargs()
         pass
 
     # execute functions
-    def build(self, **kwargs):
-        self.get_build_kwargs(**kwargs)
-        if self._flip:
-            self.flip_build_kwargs()
-
-        for key in self._build_list['build']['keys']:
-            self._build_list['build']['functions'][key]()
-
-    def connect(self, **kwargs):
-        self.get_connect_kwargs(**kwargs)
-
-        if self._flip:
-            self.flip_connect_kwargs()
-
-        for key in self._build_list['connect']['keys']:
-            self._build_list['connect']['functions'][key]()
-
     def get_info(self, node):
         self._node = node
 
@@ -126,6 +104,7 @@ class CoreNode(object):
 
     # register steps to sections
     def register_steps(self):
+        super(CoreNode, self).register_steps()
         # build steps
         self.add_build_step('create hierarchy', self.create_hierarchy, 'build')
         self.add_build_step('add input attributes', self.add_input_attributes, 'build')
@@ -143,27 +122,6 @@ class CoreNode(object):
         self.add_build_step('get rig node info', self.get_rig_node_info, 'get_info')
         self.add_build_step('get input info', self.get_input_info, 'get_info')
         self.add_build_step('get output info', self.get_output_info, 'get_info')
-
-    def add_build_step(self, name, function, section, after=None):
-        """
-        add build step to given section
-
-        Args:
-            name (str): build step's name
-            function: in-class method
-            section (str): add step to the given build section
-            after (int/str): put step after the given step name / index
-        """
-        if after:
-            if isinstance(after, basestring):
-                # get index
-                after = self._build_list[section]['keys'].index(after)
-            # insert step after the given index
-            self._build_list[section]['keys'].insert(after, name)
-        else:
-            self._build_list[section]['keys'].append(name)
-
-        self._build_list[section]['functions'].update({name: function})
 
     # build functions
     def create_hierarchy(self):

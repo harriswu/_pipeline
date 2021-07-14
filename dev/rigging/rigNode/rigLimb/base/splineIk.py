@@ -205,7 +205,7 @@ class SplineIk(ikHandleLimb.IkHandle):
                                                 maintain_offset=True, skip=['translateX', 'translateY', 'translateZ'],
                                                 force=True)
             # extract twist
-            twist_attr = transformUtils.twist_extraction('{0}.{1}'.format(grp, attributeUtils.MATRIX), axis='x')
+            twist_attr = nodeUtils.matrix.twist_extraction('{0}.{1}'.format(grp, attributeUtils.MATRIX), axis='x')
             twist_plugs.append(twist_attr)
 
         # ik handle's advance twist only works with world matrix,
