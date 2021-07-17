@@ -414,7 +414,8 @@ def transfer_attribute(source_attr, target_node, source_node=None, name_override
 
     # get target attr name
     if not name_override:
-        target_attr = source_attr
+        # make sure to remove index
+        target_attr = source_attr.split('[')[0]
     else:
         target_attr = name_override
 
@@ -423,17 +424,18 @@ def transfer_attribute(source_attr, target_node, source_node=None, name_override
                    'multi': False}
 
     # get attribute type
-    attr_type = cmds.attributeQuery(source_attr, node=source_node, type=True)
+    attr_type = cmds.getAttr('{0}.{1}'.format(source_node, source_attr), type=True)
     attr_kwargs.update({'attribute_type': attr_type})
     # check multi
-    multi = cmds.attributeQuery(source_attr, node=source_node, multi=True)
-    attr_kwargs.update({'multi': multi})
-    if multi:
+    if 'Compound' in attr_type:
+        attr_kwargs.update({'multi': True})
         # check child attr type
         attr_type = cmds.getAttr(source_attr_path + '[0]', type=True)
         attr_kwargs.update({'attribute_type': attr_type})
 
     # check max and min value
+    # remove index if exists, attributeQuery doesn't support index
+    source_attr = source_attr.split('[')[0]
     value_range = [None, None]
     max_exists = cmds.attributeQuery(source_attr, node=source_node, maxExists=True)
     min_exists = cmds.attributeQuery(source_attr, node=source_node, minExists=True)
@@ -447,9 +449,9 @@ def transfer_attribute(source_attr, target_node, source_node=None, name_override
         attr_kwargs.update({'value_range': value_range})
 
     # get default value
-    default_val = cmds.attributeQuery(source_attr, node=source_node, listDefault=True)[0]
+    default_val = cmds.attributeQuery(source_attr, node=source_node, listDefault=True)
     if default_val:
-        attr_kwargs.update({'default_value': default_val})
+        attr_kwargs.update({'default_value': default_val[0]})
 
     # get keyable and channelBox
     keyable = cmds.attributeQuery(source_attr, node=source_node, keyable=True)
@@ -482,7 +484,7 @@ def transfer_attribute(source_attr, target_node, source_node=None, name_override
     target_attr_path = '{0}.{1}'.format(target_node, target_attr)
 
     if link:
-        if not multi:
+        if not attr_kwargs.get('multi', False):
             connect(source_attr_path, target_attr_path)
         else:
             # get indexes in use

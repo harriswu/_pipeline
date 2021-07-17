@@ -82,6 +82,7 @@ class Twist(coreLimb.CoreLimb):
 
         for i, pos in enumerate(ctrl_pos):
             ctrl = controlUtils.create(self._description, side=self._side, index=i + 1,
+                                       additional_description=self._additional_description,
                                        limb_index=self._limb_index, sub=True, parent=self._controls_group,
                                        position=[pos, self._guide_joints[0]],
                                        lock_hide=attributeUtils.TRANSLATE + attributeUtils.SCALE)
@@ -106,11 +107,11 @@ class Twist(coreLimb.CoreLimb):
         reverse_start_val = nodeUtils.utility.condition(self._reverse_start_attr, 0, 1, -1,
                                                         name=namingUtils.update(self._node, type='condition',
                                                                                 additional_description='reverseStart'),
-                                                        operation='==')
+                                                        operation='==') + 'R'
         reverse_end_val = nodeUtils.utility.condition(self._reverse_end_attr, 0, 1, -1,
                                                       name=namingUtils.update(self._node, type='condition',
                                                                               additional_description='reverseEnd'),
-                                                      operation='==')
+                                                      operation='==') + 'R'
 
         # multiple together to get twist values
         nodeUtils.arithmetic.equation('{0}*{1}'.format(start_twist, reverse_start_val),

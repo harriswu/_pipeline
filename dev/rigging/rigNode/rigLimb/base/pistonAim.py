@@ -59,11 +59,13 @@ class PistonAim(coreLimb.CoreLimb):
         self._stretch_clamp_max = kwargs.get('stretch_clamp_max', 0)
         self._stretch_max = kwargs.get('stretch_max', 2)
 
+    def get_left_build_setting(self):
+        super(PistonAim, self).get_left_build_setting()
         self._aim_vector = [1, 0, 0]
         self._up_vector = [0, 1, 0]
 
-    def flip_build_kwargs(self):
-        super(PistonAim, self).flip_build_kwargs()
+    def get_right_build_setting(self):
+        super(PistonAim, self).get_right_build_setting()
         self._aim_vector = [-1, 0, 0]
         self._up_vector = [0, 1, 0]
 
@@ -201,7 +203,7 @@ class PistonAim(coreLimb.CoreLimb):
         aim_nodes = []
         parent = self._setup_group
         for jnt in self._guide_joints:
-            node = transformUtils.create(namingUtils.update(self._node, type='group',
+            node = transformUtils.create(namingUtils.update(jnt, type='group',
                                                             additional_description='setup'),
                                          parent=parent, position=jnt)
             parent = node

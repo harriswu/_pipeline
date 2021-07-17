@@ -49,8 +49,8 @@ class PoseReader(coreUtility.CoreUtility):
 
         self._driver_vector = [1, 0, 0]
 
-    def flip_build_kwargs(self):
-        super(PoseReader, self).flip_build_kwargs()
+    def get_right_build_setting(self):
+        super(PoseReader, self).get_right_build_setting()
         reference_points = []
         for pnt in self._reference_points:
             reference_points.append([-pnt[0], -pnt[1], -pnt[2]])

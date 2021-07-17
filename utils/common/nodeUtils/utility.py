@@ -133,3 +133,26 @@ def blend_colors(blender, color1, color2, name='blendColors1', connect_attr=None
                     attributeUtils.connect(blend_node + '.outputR', attr, force=force)
 
     return blend_node + '.output'
+
+
+def clamp(input_value, min_value, max_value, name='clamp1', connect_attr=None, force=True):
+    clamp_node = cmds.createNode('clamp', name=name)
+    # connect attributes for inputs
+    attributeUtils.set_connect_3d_attr(clamp_node + '.input', input_value, attr_suffix='RGB')
+    attributeUtils.set_connect_3d_attr(clamp_node + '.min', min_value, attr_suffix='RGB')
+    attributeUtils.set_connect_3d_attr(clamp_node + '.max', max_value, attr_suffix='RGB')
+    # connect attrs
+    if connect_attr:
+        if isinstance(connect_attr, basestring):
+            connect_attr = [connect_attr]
+            for attr in connect_attr:
+                # check output type
+                attr_type = cmds.getAttr(attr, type=True)
+                if attr_type.endswith('3'):
+                    # 3d output, connect with outColor directly
+                    attributeUtils.connect(clamp_node + '.output', attr, force=force)
+                else:
+                    # connect using condition's first slot
+                    attributeUtils.connect(clamp_node + '.outputR', attr, force=force)
+
+    return clamp_node + '.output'

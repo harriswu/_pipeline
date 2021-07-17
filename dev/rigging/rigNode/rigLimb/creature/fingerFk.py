@@ -46,10 +46,10 @@ class FingerFk(fkChain.FkChain):
     def add_input_attributes(self):
         super(FingerFk, self).add_input_attributes()
         self._driver_matrix_attr = attributeUtils.add(self._input_node, self.DRIVER_MATRIX_ATTR,
-                                                      attribute_type='matrix')
+                                                      attribute_type='matrix')[0]
         self._driver_weight_attr = attributeUtils.add(self._input_node, self.DRIVER_WEIGHT_ATTR,
                                                       attribute_type='float', value_range=[0, 1],
-                                                      default_value=self._driver_weight)
+                                                      default_value=self._driver_weight)[0]
 
     def create_setup(self):
         super(FingerFk, self).create_setup()

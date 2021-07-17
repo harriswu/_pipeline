@@ -39,7 +39,7 @@ class IkHandle(coreLimb.CoreLimb):
     def create_ik(self):
         # create ik handle
         ik_handle = cmds.ikHandle(startJoint=self._setup_nodes[0], endEffector=self._setup_nodes[-1],
-                                  solver=self._ik_type, name=namingUtils.update(self._node, type='ikHandle'))
+                                  solver=self._ik_type, name=namingUtils.update(self._node, type='ikHandle'))[0]
         cmds.parent(ik_handle, self._nodes_hide_group)
         # append list
         self._iks.append(ik_handle)

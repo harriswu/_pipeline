@@ -38,7 +38,7 @@ class DataImport(rigData.RigData):
                         data_import_path.append(file_path)
         else:
             # get all support files
-            files_import = fileUtils.pathUtils.get_files_from_path(self._data_path, exceptions=SUPPORT_FORMAT)
+            files_import = fileUtils.pathUtils.get_files_from_path(self._data_path, extension=SUPPORT_FORMAT)
             data_import_path += files_import
 
         self._data_import_path = list(set(data_import_path))

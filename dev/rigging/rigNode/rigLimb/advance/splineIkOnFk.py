@@ -35,7 +35,7 @@ class SplineIkOnFk(splineIk.SplineIk):
                         'guide_joints': self._guide_fk,
                         'lock_hide': self._fk_lock_hide,
                         'control_end_joint': True,
-                        'create_joint': False}
+                        'create_joints': False}
 
         connect_kwargs = {'input_matrix': self._input_matrix_attr,
                           'offset_matrix': self._offset_matrix_attr}
@@ -43,7 +43,6 @@ class SplineIkOnFk(splineIk.SplineIk):
         self._fk_limb = self.create_rig_node('dev.rigging.rigNode.rigLimb.base.fkChain', name_template=self._node,
                                              build=True, build_kwargs=build_kwargs, connect=True,
                                              connect_kwargs=connect_kwargs, flip=self._flip)
-
         attributeUtils.connect([self._controls_vis_output_attr, self._joints_vis_output_attr,
                                 self._nodes_vis_output_attr],
                                [self._fk_limb.controls_vis_offset_attr, self._fk_limb.joints_vis_offset_attr,

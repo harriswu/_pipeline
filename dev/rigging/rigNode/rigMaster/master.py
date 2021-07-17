@@ -25,6 +25,7 @@ class Master(coreNode.CoreNode):
     CONTROLS_GROUP_ATTR = 'controlsGroup'
     SKELETON_GROUP_ATTR = 'skeletonGroup'
     LIMBS_GROUP_ATTR = 'limbsGroup'
+    SPACES_GROUP_ATTR = 'spacesGroup'
 
     def __init__(self):
         super(Master, self).__init__()
@@ -36,6 +37,7 @@ class Master(coreNode.CoreNode):
         self._controls_group = None
         self._skeleton_group = None
         self._limbs_group = None
+        self._spaces_group = None
 
         self._world_control = None
         self._layout_control = None
@@ -58,6 +60,7 @@ class Master(coreNode.CoreNode):
         self._controls_group_attr = None
         self._skeleton_group_attr = None
         self._limbs_group_attr = None
+        self._spaces_group_attr = None
 
     @property
     def node(self):
@@ -127,30 +130,34 @@ class Master(coreNode.CoreNode):
         """
         create master node's hierarchy
         """
-        self._master_group = transformUtils.create(namingUtils.compose(type='masterGroup'),
+        self._master_group = transformUtils.create(namingUtils.compose(type='master'),
                                                    lock_hide=attributeUtils.ALL)
-        self._geometry_group = transformUtils.create(namingUtils.compose(type='geometryGroup'),
+        self._geometry_group = transformUtils.create(namingUtils.compose(type='geometry'),
                                                      lock_hide=attributeUtils.ALL, parent=self._master_group)
-        self._controls_group = transformUtils.create(namingUtils.compose(type='controlsGroup'),
+        self._controls_group = transformUtils.create(namingUtils.compose(type='controls'),
                                                      lock_hide=attributeUtils.ALL, parent=self._master_group)
-        self._skeleton_group = transformUtils.create(namingUtils.compose(type='skeletonGroup'),
+        self._skeleton_group = transformUtils.create(namingUtils.compose(type='skeleton'),
                                                      lock_hide=attributeUtils.ALL, parent=self._master_group)
-        self._limbs_group = transformUtils.create(namingUtils.compose(type='limbsGroup'),
+        self._limbs_group = transformUtils.create(namingUtils.compose(type='limbs'),
                                                   lock_hide=attributeUtils.ALL, parent=self._master_group)
+        self._spaces_group = transformUtils.create(namingUtils.compose(type='spaces'),
+                                                   lock_hide=attributeUtils.ALL, parent=self._master_group)
 
+        self._node = self._master_group
         # register node path
-        attributeUtils.add(self._node, self.NODE_PATH_ATTR, attribute_type='string', default_value=self._node_path,
-                           lock_attr=True)
+        attributeUtils.add(self._master_group, self.NODE_PATH_ATTR, attribute_type='string',
+                           default_value=self._node_path, lock_attr=True)
 
     def add_input_attributes(self):
         self._geometry_display_type_attr = attributeUtils.add(self._master_group, self.GEOMETRY_DISPLAY_TYPE_ATTR,
                                                               attribute_type='enum',
                                                               enum_name='Normal:Template:Reference',
-                                                              default_value=3, keyable=False, channel_box=True)[0]
+                                                              default_value=2, keyable=False, channel_box=True)[0]
         vis_attrs = attributeUtils.add(self._master_group,
                                        [self.GEOMETRY_VIS_ATTR, self.CONTROLS_VIS_ATTR, self.SKELETON_VIS_ATTR,
                                         self.JOINTS_VIS_ATTR, self.NODES_VIS_ATTR],
-                                       attribute_type='bool', default_value=1, keyable=False, channel_box=True)[0]
+                                       attribute_type='bool', default_value=[True, True, False, False, False],
+                                       keyable=False, channel_box=True)
 
         self._geometry_vis_attr = vis_attrs[0]
         self._controls_vis_attr = vis_attrs[1]
@@ -164,11 +171,11 @@ class Master(coreNode.CoreNode):
                                 self._controls_vis_attr,
                                 self._skeleton_vis_attr],
                                ['{0}.{1}'.format(self._geometry_group, attributeUtils.VISIBILITY),
-                                self._geometry_group + 'overrideDisplayType',
+                                self._geometry_group + '.overrideDisplayType',
                                 '{0}.{1}'.format(self._controls_group, attributeUtils.VISIBILITY),
                                 '{0}.{1}'.format(self._skeleton_group, attributeUtils.VISIBILITY)])
 
-        cmds.setAttr(self._geometry_group + 'overrideEnabled', 1)
+        cmds.setAttr(self._geometry_group + '.overrideEnabled', 1)
 
     def create_node(self):
         self._world_control = controlUtils.create('world', side='center', index=1, lock_hide=attributeUtils.SCALE,
@@ -179,7 +186,7 @@ class Master(coreNode.CoreNode):
                                                                                  controlUtils.HIERARCHY_MATRIX_ATTR),
                                                    tag=True, tag_parent=self._world_control)
         self._local_control = controlUtils.create('local', side='center', index=1, lock_hide=attributeUtils.SCALE,
-                                                  parent=self._local_control,
+                                                  parent=self._layout_control,
                                                   input_matrix='{0}.{1}'.format(self._layout_control,
                                                                                 controlUtils.HIERARCHY_MATRIX_ATTR),
                                                   tag=True, tag_parent=self._layout_control)
@@ -195,7 +202,8 @@ class Master(coreNode.CoreNode):
 
         message_attrs = attributeUtils.add(self._master_group,
                                            [self.GEOMETRY_GROUP_ATTR, self.CONTROLS_GROUP_ATTR,
-                                            self.SKELETON_GROUP_ATTR, self.LIMBS_GROUP_ATTR],
+                                            self.SKELETON_GROUP_ATTR, self.LIMBS_GROUP_ATTR,
+                                            self.SPACES_GROUP_ATTR],
                                            attribute_type='message')
 
         self._controls_attr = attributeUtils.add(self._master_group, self.CONTROLS_ATTR, attribute_type='message',
@@ -205,12 +213,15 @@ class Master(coreNode.CoreNode):
         self._controls_group_attr = message_attrs[1]
         self._skeleton_group_attr = message_attrs[2]
         self._limbs_group_attr = message_attrs[3]
+        self._spaces_group_attr = message_attrs[4]
 
         # connect with each group
         attributeUtils.connect(['{0}.{1}'.format(self._geometry_group, attributeUtils.MESSAGE),
                                 '{0}.{1}'.format(self._skeleton_group, attributeUtils.MESSAGE),
-                                '{0}.{1}'.format(self._limbs_group, attributeUtils.MESSAGE)],
-                               [self._geometry_group_attr, self._skeleton_group_attr, self._limbs_group_attr])
+                                '{0}.{1}'.format(self._limbs_group, attributeUtils.MESSAGE),
+                                '{0}.{1}'.format(self._spaces_group, attributeUtils.MESSAGE)],
+                               [self._geometry_group_attr, self._skeleton_group_attr, self._limbs_group_attr,
+                                self._spaces_group_attr])
 
         # connect to out matrix
         attributeUtils.connect('{0}.{1}'.format(self._local_control, controlUtils.HIERARCHY_MATRIX_ATTR),

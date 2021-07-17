@@ -14,17 +14,18 @@ class ControlShape(rigData.RigData):
         self._size = 1
 
     def get_build_kwargs(self, **kwargs):
-        super(ControlShape, self).get_build_kwargs()
+        super(ControlShape, self).get_build_kwargs(**kwargs)
         self._size = kwargs.get('size', 1)
 
     def register_steps(self):
         super(ControlShape, self).register_steps()
-        self.add_build_step('load data', self.get_data, 'connect')
+        self.add_build_step('load data', self.load_data, 'connect')
 
     def get_data(self):
         super(ControlShape, self).get_data()
         # get control shape file
         ctrl_shape_path = os.path.join(self._data_path, NAME + FORMAT)
+
         if os.path.isfile(ctrl_shape_path):
             self._data_import_path.append(ctrl_shape_path)
 

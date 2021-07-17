@@ -43,7 +43,7 @@ class MultiBlend(rigGroup.RigGroup):
 
         self._blend_matrices = {'joints': {},
                                 'input_matrix': {}}
-        self._extra_input_matrices = {}
+
         self._space_blend_node = None
         self._extra_blend_nodes = []
         self._multi_switch_node = None
@@ -52,6 +52,18 @@ class MultiBlend(rigGroup.RigGroup):
     @property
     def modes(self):
         return self._limb_keys
+
+    @property
+    def mode_attrs(self):
+        return self._mode_attrs
+
+    @property
+    def blend_attr(self):
+        return self._blend_attrs[0]
+
+    @property
+    def show_all_attr(self):
+        return self._show_all_attr
     
     def get_connect_kwargs(self, **kwargs):
         super(MultiBlend, self).get_connect_kwargs(**kwargs)
@@ -76,7 +88,8 @@ class MultiBlend(rigGroup.RigGroup):
     def add_input_attributes_post(self):
         super(MultiBlend, self).add_input_attributes_post()
         self.add_blend_inputs()
-        self.add_control_attributes()
+        if self._controls:
+            self.add_control_attributes()
         self.add_input_matrices()
 
     def add_blend_inputs(self):
@@ -84,6 +97,7 @@ class MultiBlend(rigGroup.RigGroup):
         self._modes_sort, self._default_indexes = spaceUtils.sort_spaces(self._input_limbs.keys(),
                                                                          default_values=self._defaults,
                                                                          custom_index=self.CUSTOM_SPACE_INDEX)
+
         # add blend attributes
         mode_blend_attrs = spaceUtils.add_blend_attr(self._modes_sort, self._input_node, self._default_indexes,
                                                      name=self.MODE_NAME)
@@ -105,7 +119,7 @@ class MultiBlend(rigGroup.RigGroup):
             attributeUtils.connect(self._input_show_all_attr, self._show_all_attr)
 
         # override limb keys
-        self._limb_keys = self._modes_sort
+        self._limb_keys = self._modes_sort.keys()
 
     def add_control_attributes(self):
         # add blend attr
@@ -150,16 +164,15 @@ class MultiBlend(rigGroup.RigGroup):
                 # connect with input attr
                 attributeUtils.connect_nodes_to_multi_attr(input_attr, extra_matrix_attr)
                 # update input matrices
-                if extra_attr in self._extra_input_matrices:
-                    self._extra_input_matrices[extra_attr].update({mode: self.get_multi_attr_names(extra_matrix_attr)})
+                if extra_attr in self._blend_matrices:
+                    self._blend_matrices[extra_attr].update({mode: self.get_multi_attr_names(extra_matrix_attr)})
                 else:
-                    self._extra_input_matrices[extra_attr] = {mode: self.get_multi_attr_names(extra_matrix_attr)}
+                    self._blend_matrices[extra_attr] = {mode: self.get_multi_attr_names(extra_matrix_attr)}
 
     def create_node_post(self):
         super(MultiBlend, self).create_node_post()
         # get all joints joint orient attribute
         joint_orient_attrs = attributeUtils.compose_attrs(self._joints, 'jointOrient')
-
         # create blend node for joint matrices
         build_kwargs = ({'additional_description': ['modeBlend'],
                          'parent_node': self._sub_nodes_group})
@@ -170,10 +183,12 @@ class MultiBlend(rigGroup.RigGroup):
                           'scale': self._scale,
                           'input_space_attrs': self._mode_attrs,
                           'input_blend_attr': self._blend_attrs[0]}
+
         space_blend_node = self.create_rig_node('dev.rigging.rigNode.rigUtility.base.spaceBlend',
                                                 name_template=self._node,
                                                 build=True, build_kwargs=build_kwargs,
                                                 connect=True, connect_kwargs=connect_kwargs, flip=self._flip)
+
         # connect blend node's output matrices to joints
         for output_matrix_attr, joint in zip(space_blend_node.blend_matrix_attr, self._joints):
             # decompose matrix and connect with joint
@@ -211,7 +226,7 @@ class MultiBlend(rigGroup.RigGroup):
 
         # create blend node for extra inputs
         for attr, input_matrices in self._blend_matrices.iteritems():
-            if attr not in ['joints', 'input_matrices']:
+            if attr not in ['joints', 'input_matrix'] and input_matrices:
                 build_kwargs = ({'additional_description': [namingUtils.to_camel_case(attr + 'Blend')],
                                  'parent_node': self._sub_nodes_group})
                 connect_kwargs = {'input_matrices': input_matrices,
@@ -286,7 +301,14 @@ class MultiBlend(rigGroup.RigGroup):
             # get limb object
             limb_obj = limbUtils.get_limb_object(limb_node)
             # add control vis offset to list
-            vis_attrs.append(limb_obj.control_vis_offset_attr)
+            vis_attrs.append(limb_obj.controls_vis_attr)
+            # connect joint vis and node vis
+            attributeUtils.connect([self._controls_vis_output_attr,
+                                    self._joints_vis_output_attr,
+                                    self._nodes_vis_output_attr],
+                                   [limb_obj.controls_vis_offset_attr,
+                                    limb_obj.joints_vis_offset_attr,
+                                    limb_obj.nodes_vis_offset_attr])
 
         # connect multi switch output to attributes
         attributeUtils.connect(self._multi_switch_output_attr, vis_attrs)

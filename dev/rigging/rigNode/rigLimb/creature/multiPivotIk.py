@@ -18,14 +18,12 @@ class MultiPivotIk(multiScIk.MultiScIk):
         super(MultiPivotIk, self).__init__(**kwargs)
         self._create_joints = True
 
-        self._attach_matrix = None
         self._guide_pivots = None
         self._guide_front = None
 
         self._pivot_limb = None
         self._front_limb = None
 
-        self._attach_matrix_attr = None
         self._roll_matrix_attr = None
         self._rvs_roll_matrix_attr = None
 
@@ -36,10 +34,6 @@ class MultiPivotIk(multiScIk.MultiScIk):
     @property
     def rvs_roll_matrix_attr(self):
         return self._rvs_roll_matrix_attr
-
-    @property
-    def attach_matrix_attr(self):
-        return self._attach_matrix_attr
 
     def get_build_kwargs(self, **kwargs):
         super(MultiPivotIk, self).get_build_kwargs(**kwargs)
@@ -74,7 +68,7 @@ class MultiPivotIk(multiScIk.MultiScIk):
         attributeUtils.connect([self._controls_vis_output_attr, self._joints_vis_output_attr,
                                 self._nodes_vis_output_attr],
                                [self._pivot_limb.controls_vis_offset_attr, self._pivot_limb.joints_vis_offset_attr,
-                                self._pivot_limb.nodes_local_vis_offset_attr])
+                                self._pivot_limb.nodes_vis_offset_attr])
 
         # create front tap limb
         build_kwargs = {'additional_description': 'frontRoll',
@@ -101,7 +95,7 @@ class MultiPivotIk(multiScIk.MultiScIk):
         attributeUtils.connect([self._controls_vis_output_attr, self._joints_vis_output_attr,
                                 self._nodes_vis_output_attr],
                                [self._front_limb.controls_vis_offset_attr, self._front_limb.joints_vis_offset_attr,
-                                self._front_limb.nodes_local_vis_offset_attr])
+                                self._front_limb.nodes_vis_offset_attr])
 
         # add controls to control list
         self._controls = self._pivot_limb.controls + self._front_limb.controls

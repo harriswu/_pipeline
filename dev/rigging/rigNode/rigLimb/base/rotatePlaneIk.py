@@ -138,8 +138,10 @@ class RotatePlaneIk(ikHandleLimb.IkHandle):
         # get joint chain's length
         self._chain_length = sum(self._section_length)
         # get ik length, it's from the root joint position to the ik handle position, simple use the ik controller
-        self._ik_length = mathUtils.point.get_distance([0, 0, 0],
-                                                       cmds.xform(self._controls[-1], query=True, translation=True))
+        self._ik_length = mathUtils.point.get_distance(cmds.xform(self._controls[0], query=True, translation=True,
+                                                                  worldSpace=True),
+                                                       cmds.xform(self._controls[-1], query=True, translation=True,
+                                                                  worldSpace=True))
 
     def create_decompose_nodes(self):
         # create decompose matrix node to get ik controllers' positions
@@ -187,7 +189,7 @@ class RotatePlaneIk(ikHandleLimb.IkHandle):
                                            connect_attr=node + '.translateX')
 
     def add_pv_lock(self):
-        if not self._stretch:
+        if not self._decompose_root_ctrl:
             self.create_decompose_nodes()
         # create decompose node for pole vector
         self._decompose_pv_ctrl = nodeUtils.create('decomposeMatrix',
@@ -226,6 +228,8 @@ class RotatePlaneIk(ikHandleLimb.IkHandle):
                                            connect_attr=node + '.translateX')
 
     def add_soft_ik(self):
+        if not self._decompose_root_ctrl:
+            self.create_decompose_nodes()
         # and soft start ratio
         soft_start_ratio = self._ik_length / self._chain_length
         # get stretch ratio attr
@@ -244,8 +248,9 @@ class RotatePlaneIk(ikHandleLimb.IkHandle):
 
         # get soft weight
         equation = '(({0} - {1})/(1 - {1}))**2 * ' \
-                   '((1 - {0}*{0}*({0} - 3)({0} - 1))**0.5 - 1)'.format(self._stretch_ratio_attr, soft_start_ratio)
+                   '((1 - {0}*{0}*({0} - 3)*({0} - 1))**0.5 - 1)'.format(self._stretch_ratio_attr, soft_start_ratio)
         name = namingUtils.update(self._node, additional_description='softWeight')
+
         soft_weight_attr = nodeUtils.arithmetic.equation(equation, name)
 
         # use condition to get soft multiplier

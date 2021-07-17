@@ -79,9 +79,6 @@ class CurveChain(coreLimb.CoreLimb):
         self._volume_curve_data = kwargs.get('volume_curve_data', [[0, 0], [0.5, 1], [1, 0]])
         self._volume_curve_kind = kwargs.get('volume_curve_kind', 'quadratic')
 
-        self._aim_vector = [1, 0, 0]
-        self._up_vector = [0, 1, 0]
-
         # get twist weights and volume weights
         self._twist_weights = self.get_curve_values(self._twist_curve_data, self._twist_curve_kind)
         self._volume_weights = self.get_curve_values(self._volume_curve_data, self._volume_curve_kind)
@@ -92,6 +89,13 @@ class CurveChain(coreLimb.CoreLimb):
         self._guide_controls = namingUtils.flip_names(self._guide_controls)
         self._control_manip_orient = namingUtils.flip_names(self._control_manip_orient)
 
+    def get_left_build_setting(self):
+        super(CurveChain, self).get_left_build_setting()
+        self._aim_vector = [1, 0, 0]
+        self._up_vector = [0, 1, 0]
+
+    def get_right_build_setting(self):
+        super(CurveChain, self).get_right_build_setting()
         self._aim_vector = [-1, 0, 0]
         self._up_vector = [0, -1, 0]
 

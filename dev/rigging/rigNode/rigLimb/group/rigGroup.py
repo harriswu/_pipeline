@@ -36,7 +36,7 @@ class RigGroup(coreLimb.CoreLimb):
 
     def flip_build_kwargs(self):
         super(RigGroup, self).flip_build_kwargs()
-        self._guide_controls = namingUtils.flip(self._guide_controls)
+        self._guide_controls = namingUtils.flip_names(self._guide_controls)
 
     def get_connect_kwargs(self, **kwargs):
         super(RigGroup, self).get_connect_kwargs(**kwargs)
@@ -46,7 +46,7 @@ class RigGroup(coreLimb.CoreLimb):
 
     def flip_connect_kwargs(self):
         super(RigGroup, self).flip_connect_kwargs()
-        self._input_limbs = namingUtils.flip(self._input_limbs)
+        self._input_limbs = namingUtils.flip_names(self._input_limbs)
 
     def register_steps(self):
         super(RigGroup, self).register_steps()

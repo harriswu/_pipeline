@@ -27,6 +27,8 @@ class CoreNode(coreFunction.CoreFunction):
 
     def __init__(self, **kwargs):
         super(CoreNode, self).__init__(**kwargs)
+        self._flip = kwargs.get('flip', False)
+        self._skip_name_flip = kwargs.get('skip_name_flip', False)
         # node type for different naming
         self._node_type = 'rigNode'
 
@@ -83,16 +85,50 @@ class CoreNode(coreFunction.CoreFunction):
         self._parent_node = kwargs.get('parent_node', None)
 
     def flip_build_kwargs(self):
-        super(CoreNode, self).flip_build_kwargs()
         self._side = namingUtils.flip_side(self._side, keep=True)
         self._parent_node = namingUtils.flip_names(self._parent_node)
+
+    def register_build_kwargs(self, **kwargs):
+        super(CoreNode, self).register_build_kwargs(**kwargs)
+        if self._flip and not self._skip_name_flip:
+            self.flip_build_kwargs()
+
+    def get_build_setting(self):
+        super(CoreNode, self).get_build_setting()
+        if self._side != 'right' and 'right' not in self._side:
+            self.get_left_build_setting()
+        else:
+            self.get_right_build_setting()
+
+    def get_left_build_setting(self):
+        pass
+
+    def get_right_build_setting(self):
+        pass
 
     def get_connect_kwargs(self, **kwargs):
         super(CoreNode, self).get_connect_kwargs(**kwargs)
         pass
 
     def flip_connect_kwargs(self):
-        super(CoreNode, self).flip_connect_kwargs()
+        pass
+
+    def register_connect_kwargs(self, **kwargs):
+        super(CoreNode, self).register_connect_kwargs(**kwargs)
+        if self._flip and not self._skip_name_flip:
+            self.flip_connect_kwargs()
+
+    def get_connect_setting(self):
+        super(CoreNode, self).get_connect_setting()
+        if self._side != 'right' and 'right' not in self._side:
+            self.get_left_connect_setting()
+        else:
+            self.get_right_connect_setting()
+
+    def get_left_connect_setting(self):
+        pass
+
+    def get_right_connect_setting(self):
         pass
 
     # execute functions
@@ -248,6 +284,8 @@ class CoreNode(coreFunction.CoreFunction):
             if attr_type == 'message':
                 # it's a message compound, get message attrs connect with the attr
                 values = cmds.listConnections(attr_path, source=True, destination=False, plugs=False, shapes=True)
+                if not values:
+                    values = []
             else:
                 # it's a data compound, get values from available indices
                 values = []
@@ -294,20 +332,19 @@ class CoreNode(coreFunction.CoreFunction):
             name_info = {}
 
         rig_node_module, rig_node_class = moduleUtils.import_module(node_path)
-        rig_node_object = getattr(rig_node_module, rig_node_class)(flip=flip)
+        rig_node_object = getattr(rig_node_module, rig_node_class)(flip=flip, skip_name_flip=True)
+        rig_node_object.register_steps()
         if build:
             if build_kwargs:
                 name_info.update(build_kwargs)
             build_kwargs = name_info
 
-            rig_node_object.get_build_kwargs(**build_kwargs)
-            rig_node_object.build()
+            rig_node_object.build(**build_kwargs)
 
             # connect process need to happens after build, so put it under build if statement
             if connect:
                 if not connect_kwargs:
                     connect_kwargs = {}
-                rig_node_object.get_connect_kwargs(**connect_kwargs)
-                rig_node_object.connect()
+                rig_node_object.connect(**connect_kwargs)
 
         return rig_node_object

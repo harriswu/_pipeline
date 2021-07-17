@@ -10,15 +10,16 @@ FORMAT = '.npy'
 class SkinCluster(rigData.RigData):
     def __init__(self, **kwargs):
         super(SkinCluster, self).__init__(**kwargs)
+        self._flip = kwargs.get('flip', False)
         self._force = False
 
     def get_build_kwargs(self, **kwargs):
-        super(SkinCluster, self).get_build_kwargs()
+        super(SkinCluster, self).get_build_kwargs(**kwargs)
         self._force = kwargs.get('force', False)
 
     def register_steps(self):
         super(SkinCluster, self).register_steps()
-        self.add_build_step('load data', self.get_data, 'connect')
+        self.add_build_step('load data', self.load_data, 'connect')
 
     def get_data(self):
         super(SkinCluster, self).get_data()

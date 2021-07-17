@@ -40,8 +40,8 @@ class Rib(rotatePlaneIk.RotatePlaneIk):
         super(Rib, self).get_build_kwargs(**kwargs)
         self._twist_multiplier = kwargs.get('twist_multiplier', 0.2)
 
-    def flip_build_kwargs(self):
-        super(Rib, self).flip_build_kwargs()
+    def get_right_build_setting(self):
+        super(Rib, self).get_right_build_setting()
         self._twist_multiplier *= -1
 
     def get_connect_kwargs(self, **kwargs):

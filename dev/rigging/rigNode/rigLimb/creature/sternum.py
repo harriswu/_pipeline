@@ -65,6 +65,9 @@ class Sternum(coreLimb.CoreLimb):
     def flip_build_kwargs(self):
         super(Sternum, self).flip_build_kwargs()
         self._guide_control = namingUtils.flip_names(self._guide_control)
+        
+    def get_right_build_setting(self):
+        super(Sternum, self).get_right_build_setting()
         self._translate_multiplier *= -1
 
     def add_input_attributes(self):

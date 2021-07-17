@@ -18,8 +18,12 @@ class AimFk(fkChain.FkChain):
 
     def create_controls(self):
         super(AimFk, self).create_controls()
+        print self._side
+        print self._node
         # create piston setup
         build_kwargs = ({'additional_description': ['aim'],
+                         'parent_node': self._sub_nodes_group,
+                         'guide_joints': self._guide_joints,
                          'aim_distance_multiplier': self._aim_distance_multiplier,
                          'up_type': 'none',
                          'create_joint': False})
