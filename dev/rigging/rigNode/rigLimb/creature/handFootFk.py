@@ -21,7 +21,9 @@ class HandFootFk(fkChain.FkChain):
         super(HandFootFk, self).add_output_attributes()
         self._roll_matrix_attr = attributeUtils.add(self._output_node, self.ROLL_MATRIX_ATTR,
                                                     attribute_type='matrix')[0]
-
+    
+    def connect_output_matrix(self):
+        super(HandFootFk, self).connect_output_matrix()
         if self._create_joints:
             nodeUtils.matrix.compose_matrix(namingUtils.update(self._node, type='composeMatrix',
                                                                additional_description='rollMatrix'),

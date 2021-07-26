@@ -65,7 +65,7 @@ class Sternum(coreLimb.CoreLimb):
     def flip_build_kwargs(self):
         super(Sternum, self).flip_build_kwargs()
         self._guide_control = namingUtils.flip_names(self._guide_control)
-        
+
     def get_right_build_setting(self):
         super(Sternum, self).get_right_build_setting()
         self._translate_multiplier *= -1
@@ -77,8 +77,9 @@ class Sternum(coreLimb.CoreLimb):
                                                                                [self.TRANSLATE_MULT_ATTR,
                                                                                 self.ROTATE_MULT_ATTR],
                                                                                attribute_type='float',
-                                                                               default_value=[self._translate_mult_attr,
-                                                                                              self._rotate_mult_attr])
+                                                                               default_value=[
+                                                                                   self._translate_multiplier,
+                                                                                   self._rotate_multiplier])
 
         # add up down attr
         self._ud_attr = attributeUtils.add(self._input_node, self.UD_ATTR, attribute_type='float')[0]
@@ -154,7 +155,7 @@ class Sternum(coreLimb.CoreLimb):
                                                                self._amplitude_attr),
                                       namingUtils.update(self._controls[0], additional_description='autoBreathe'),
                                       connect_attr=connect_node + '.translateY')
-        
+
     def connect_to_joints(self):
         super(Sternum, self).connect_to_joints()
         for setup_jnt, jnt in zip(self._setup_nodes, self._joints):
@@ -164,7 +165,10 @@ class Sternum(coreLimb.CoreLimb):
     def add_output_attributes(self):
         super(Sternum, self).add_output_attributes()
         self._pump_handle_attr = attributeUtils.add(self._output_node, self.PUMP_HANDLE_ATTR, attribute_type='float')[0]
-        cmds.connectAttr(self._ud_attr, self._pump_handle_attr)
+        
+    def connect_limb_info(self):
+        super(Sternum, self).connect_limb_info()
+        attributeUtils.connect(self._ud_attr, self._pump_handle_attr)
 
     def get_input_info(self):
         super(Sternum, self).get_input_info()

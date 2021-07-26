@@ -21,6 +21,9 @@ class Master(coreNode.CoreNode):
     NODE_PATH_ATTR = 'nodePath'
     CONTROLS_ATTR = 'controls'
 
+    LAYOUT_CONTROL_VIS_ATTR = 'layoutCtrlVis'
+    LOCAL_CONTROL_VIS_ATTR = 'localCtrlVis'
+
     GEOMETRY_GROUP_ATTR = 'geometryGroup'
     CONTROLS_GROUP_ATTR = 'controlsGroup'
     SKELETON_GROUP_ATTR = 'skeletonGroup'
@@ -81,6 +84,10 @@ class Master(coreNode.CoreNode):
     @property
     def skeleton_group(self):
         return self._skeleton_group
+
+    @property
+    def space_group(self):
+        return self._spaces_group
 
     @property
     def limbs_group(self):
@@ -196,6 +203,15 @@ class Master(coreNode.CoreNode):
             scale_attr = attributeUtils.add(ctrl, 'rigScale', attribute_type='float', value_range=[0, None],
                                             default_value=1)[0]
             attributeUtils.connect(scale_attr, attributeUtils.SCALE, driven=ctrl)
+
+        # add vis switch for layout and local control
+        attributeUtils.add(self._world_control, [self.LAYOUT_CONTROL_VIS_ATTR, self.LOCAL_CONTROL_VIS_ATTR],
+                           attribute_type='bool', keyable=False, channel_box=True)
+        attributeUtils.connect([self.LAYOUT_CONTROL_VIS_ATTR, self.LOCAL_CONTROL_VIS_ATTR],
+                               ['{0}.{1}'.format(controlUtils.get_hierarchy_node(self._layout_control, 'zero'),
+                                                 attributeUtils.VISIBILITY),
+                                '{0}.{1}'.format(controlUtils.get_hierarchy_node(self._local_control, 'zero'),
+                                                 attributeUtils.VISIBILITY)], driver=self._world_control)
 
     def add_output_attributes(self):
         self._out_matrix_attr = attributeUtils.add(self._master_group, self.OUT_MATRIX_ATTR, attribute_type='matrix')[0]

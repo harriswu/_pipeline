@@ -2,7 +2,7 @@
 import os
 
 
-# functions
+# function
 def get_folders(path, full_path=True):
     """
     get folders from the given path

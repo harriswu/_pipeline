@@ -42,7 +42,7 @@ def equation(expression, template_name, connect_attr=None, force=True):
     return output_attr
 
 
-# operation functions
+# operation function
 def add(left, right, template_name):
     """
     connect left and right attr with addDoubleLinear node
@@ -104,7 +104,7 @@ def subtract(left, right, template_name):
             cmds.connectAttr(right, mult_node + '.input1')
             cmds.connectAttr(mult_node + '.output', add_node + '.input2')
         else:
-            cmds.setAttr(add_node + '.input2', right)
+            cmds.setAttr(add_node + '.input2', -right)
 
         if is_str_left:
             cmds.connectAttr(left, add_node + '.input1')

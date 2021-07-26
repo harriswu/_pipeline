@@ -3,13 +3,47 @@ import maya.cmds as cmds
 
 # import utils
 import utils.common.namingUtils as namingUtils
+import utils.common.attributeUtils as attributeUtils
 import utils.common.transformUtils as transformUtils
 import utils.common.hierarchyUtils as hierarchyUtils
 import utils.modeling.curveUtils as curveUtils
 
 
-# functions
-def create(name, rotate_order=0, parent_node=None, position=None, matrix=None, visibility=True):
+# class
+class Joint(object):
+    def __init__(self, name):
+        self._name = name
+        self._joint_orient_attr = self._name + '.jointOrient'
+        self._matrix_attr = '{0}.{1}'.format(self._name, attributeUtils.MATRIX)
+        self._world_matrix_attr = '{0}.{1}'.format(self._name, attributeUtils.WORLD_MATRIX)
+
+    @property
+    def joint_orient_attr(self):
+        return self._joint_orient_attr
+
+    @property
+    def joint_orient(self):
+        return cmds.getAttr(self._joint_orient_attr)
+
+    @property
+    def matrix_attr(self):
+        return self._matrix_attr
+
+    @property
+    def matrix(self):
+        return cmds.getAttr(self._matrix_attr)
+
+    @property
+    def world_matrix_attr(self):
+        return self._world_matrix_attr
+
+    @property
+    def world_matrix(self):
+        return cmds.getAttr(self._world_matrix_attr)
+
+
+# function
+def create(name, rotate_order=0, parent_node=None, position=None, matrix=None, visibility=True, label=True):
     """
     create single joint
 
@@ -23,6 +57,7 @@ def create(name, rotate_order=0, parent_node=None, position=None, matrix=None, v
                            [[x,y,z], [x,y,z]]: match translate/rotate to given values
         matrix(list): if need the joint to match a specific matrix, it will override position
         visibility(bool): visibility, default is True
+        label(bool): automatically label joint base on name, only works if follow the naming convention
 
     Returns:
         joint(str)
@@ -31,6 +66,8 @@ def create(name, rotate_order=0, parent_node=None, position=None, matrix=None, v
     jnt = cmds.createNode('joint', name=name, parent=parent_node)
     cmds.setAttr(jnt+'.rotateOrder', rotate_order)
     cmds.setAttr(jnt+'.visibility', visibility)
+    if label:
+        label_joint(jnt)
 
     # match position
     if position:
@@ -47,7 +84,7 @@ def create(name, rotate_order=0, parent_node=None, position=None, matrix=None, v
     return jnt
 
 
-def create_chain(positions, names, rotate_order=0, visibility=True, reverse=False, parent_node=None):
+def create_chain(positions, names, rotate_order=0, visibility=True, reverse=False, parent_node=None, label=True):
     """
     create joint chain base on given positions/nodes,
     by default the parent order is from the root to the end
@@ -59,6 +96,7 @@ def create_chain(positions, names, rotate_order=0, visibility=True, reverse=Fals
         visibility (bool): joints visibility, default is True
         reverse (bool): reverse parent order, default is False.
         parent_node (str): parent joint chain to the given node
+        label(bool): automatically label joints base on name, only works if follow the naming convention
 
     Returns:
         joints (list): list of joints
@@ -66,7 +104,7 @@ def create_chain(positions, names, rotate_order=0, visibility=True, reverse=Fals
     # create joints
     jnts = []
     for pos, nm in zip(positions, names):
-        jnt = create(nm, rotate_order=rotate_order, position=pos, visibility=visibility)
+        jnt = create(nm, rotate_order=rotate_order, position=pos, visibility=visibility, label=label)
         jnts.append(jnt)
 
     # parent chain function has opposite reverse order
@@ -79,7 +117,7 @@ def create_chain(positions, names, rotate_order=0, visibility=True, reverse=Fals
 
 
 def create_along_curve(curve, number, additional_description=None, aim_vector=None, up_vector=None, up_curve=None,
-                       aim_type='tangent', flip_check=True, parent_node=None, chain=True):
+                       aim_type='tangent', flip_check=True, parent_node=None, chain=True, label=True):
     """
     create joints evenly along given curve
     Args:
@@ -94,6 +132,7 @@ def create_along_curve(curve, number, additional_description=None, aim_vector=No
         flip_check (bool): will automatically fix flipping transform if set to True, default is True
         parent_node (str): parent transform nodes under the given node
         chain (bool): if need to parent joints as a joint chain, default is True
+        label(bool): automatically label joint base on name, only works if follow the naming convention
 
     Returns:
         joints (list): joints along given curve
@@ -111,6 +150,8 @@ def create_along_curve(curve, number, additional_description=None, aim_vector=No
         if name_check:
             jnt = cmds.rename(jnt, namingUtils.update(curve, type='joint',
                                                       additional_description=additional_description, index=i + 1))
+            if label:
+                label_joint(jnt)
         # set matrix position
         cmds.xform(jnt, matrix=mtx, worldSpace=True)
         # freeze transformation
@@ -123,3 +164,29 @@ def create_along_curve(curve, number, additional_description=None, aim_vector=No
         hierarchyUtils.parent_chain(joints, reverse=True)
 
     return joints
+
+
+def label_joint(joint):
+    """
+    label joints base on naming
+
+    Args:
+        joint (str): joint's name
+    """
+    name_check = namingUtils.check(joint)
+    if name_check:
+        # get name tokens
+        name_tokens = namingUtils.decompose(joint)
+        # get side
+        side = name_tokens.get('side', ['center'])
+        if 'center' in side:
+            cmds.setAttr(joint + '.side', 0)
+        elif 'left' in side:
+            cmds.setAttr(joint + '.side', 1)
+        else:
+            cmds.setAttr(joint + '.side', 2)
+
+        # remove type and side from name, put the rest as label
+        label_name = joint.replace('__'.join([name_tokens['type'], side[0]]), '')
+        cmds.setAttr(joint + '.type', 18)
+        cmds.setAttr(joint + '.otherType', label_name, type='string')

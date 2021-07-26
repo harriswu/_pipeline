@@ -9,7 +9,7 @@ import utils.common.attributeUtils as attributeUtils
 import utils.common.hierarchyUtils as hierarchyUtils
 
 
-# functions
+# function
 def create(name, control_vertices, knots, degree=1, form=1, parent=None):
     """
     create curve with given information

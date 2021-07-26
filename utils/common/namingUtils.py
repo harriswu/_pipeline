@@ -196,7 +196,7 @@ class Name(object):
         self.decompose()
 
 
-# functions
+# function
 def compose(type=None, side=None, lod=None, description=None, index=1, limb_index=None, additional_description=None):
     """
     compose name tokens to naming format
@@ -649,7 +649,7 @@ def to_camel_case(name):
     return "".join(c.next()(x) if x else '_' for x in name.split("_"))
 
 
-# sub functions
+# sub function
 def _compose_side(side_token):
     """
     compose side tokens into naming format

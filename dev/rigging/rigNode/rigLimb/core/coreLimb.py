@@ -4,6 +4,7 @@ import utils.common.namingUtils as namingUtils
 import utils.common.mathUtils as mathUtils
 import utils.common.attributeUtils as attributeUtils
 import utils.common.transformUtils as transformUtils
+import utils.common.hierarchyUtils as hierarchyUtils
 import utils.common.nodeUtils as nodeUtils
 import utils.rigging.jointUtils as jointUtils
 import utils.rigging.controlUtils as controlUtils
@@ -31,10 +32,12 @@ class CoreLimb(coreNode.CoreNode):
     # input attributes
     INPUT_MATRIX_ATTR = 'inputMatrix'
     OFFSET_MATRIX_ATTR = 'offsetMatrix'
-    INPUT_INVERSE_MATRIX_ATTR = 'inputInverseMatrix'
+    CONNECT_MATRIX_ATTR = 'connectMatrix'
+    CONNECT_INVERSE_MATRIX_ATTR = 'connectInverseMatrix'
     # output attributes
     CONTROLS_ATTR = 'controls'
     JOINTS_ATTR = 'joints'
+    SKELETON_ATTR = 'skeleton'
     SETUP_NODES_ATTR = 'setupNodes'
     OUTPUT_WORLD_MATRIX_ATTR = 'outputWorldMatrix'
     OUTPUT_LOCAL_MATRIX_ATTR = 'outputLocalMatrix'
@@ -57,8 +60,11 @@ class CoreLimb(coreNode.CoreNode):
         # limb info
         self._joints = []
         self._controls = []
-        self._control_objects = []
+        self._hide_controls = []
         self._setup_nodes = []
+        self._skeleton = []
+        self._skeleton_range = None
+        self._skeleton_parent = None
 
         # place holders for attributes
         # vis switch attributes
@@ -76,7 +82,8 @@ class CoreLimb(coreNode.CoreNode):
         # input attributes
         self._input_matrix_attr = None
         self._offset_matrix_attr = None
-        self._input_inverse_matrix_attr = None
+        self._connect_matrix_attr = None
+        self._connect_inverse_matrix_attr = None
         # output attributes
         self._output_world_matrix_attrs = None
         self._output_local_matrix_attrs = None
@@ -85,6 +92,7 @@ class CoreLimb(coreNode.CoreNode):
         # build kwargs
         self._guide_joints = None
         self._create_joints = None
+        self._create_skeleton = None
         self._tag_controls = None
         # connection kwargs
         self._input_matrix = None
@@ -97,12 +105,20 @@ class CoreLimb(coreNode.CoreNode):
         return self._joints
 
     @property
+    def joint_objects(self):
+        return [jointUtils.Joint(jnt) for jnt in self._joints]
+
+    @property
     def controls(self):
         return self._controls
 
     @property
     def control_objects(self):
-        return self._control_objects
+        return [controlUtils.Control(ctrl) for ctrl in self._controls]
+
+    @property
+    def skeleton(self):
+        return self._skeleton
 
     @property
     def setup_nodes(self):
@@ -153,6 +169,14 @@ class CoreLimb(coreNode.CoreNode):
         return self._offset_matrix_attr
 
     @property
+    def connect_matrix_attr(self):
+        return self._connect_matrix_attr
+
+    @property
+    def connect_inverse_matrix_attr(self):
+        return self._connect_inverse_matrix_attr
+
+    @property
     def output_world_matrix_attrs(self):
         return self._output_world_matrix_attrs
 
@@ -168,6 +192,9 @@ class CoreLimb(coreNode.CoreNode):
         self._create_joints = kwargs.get('create_joints', True)
         # control kwargs
         self._tag_controls = kwargs.get('tag_controls', True)
+        # skeleton kwargs
+        self._create_skeleton = kwargs.get('create_skeleton', False)
+        self._skeleton_range = kwargs.get('skeleton_range', None)
 
     def flip_build_kwargs(self):
         super(CoreLimb, self).flip_build_kwargs()
@@ -178,19 +205,27 @@ class CoreLimb(coreNode.CoreNode):
         self._input_matrix = kwargs.get('input_matrix', None)
         self._offset_matrix = kwargs.get('offset_matrix', None)
         self._tag_parent = kwargs.get('tag_parent', None)
+        self._skeleton_parent = kwargs.get('skeleton_parent', None)
 
     def flip_connect_kwargs(self):
         super(CoreLimb, self).flip_connect_kwargs()
         self._input_matrix = namingUtils.flip_names(self._input_matrix)
         self._offset_matrix = namingUtils.flip_names(self._offset_matrix)
         self._tag_parent = namingUtils.flip_names(self._tag_parent)
+        self._skeleton_parent = namingUtils.flip_names(self._skeleton_parent)
 
     # register steps to sections
     def register_steps(self):
         super(CoreLimb, self).register_steps()
-        self.add_build_step('tag controllers', self.tag_controllers, 'connect')
+        self.add_build_step('create skeleton', self.create_skeleton, 'build')
+        self.add_build_step('connect output matrix', self.connect_output_matrix, 'build')
+        self.add_build_step('hide controller', self.hide_controller, 'build')
+        self.add_build_step('connect limb info', self.connect_limb_info, 'build')
 
-    # build functions
+        self.add_build_step('tag controllers', self.tag_controllers, 'connect')
+        self.add_build_step('connect skeleton', self.connect_skeleton, 'connect')
+
+    # build function
     def create_hierarchy(self):
         super(CoreLimb, self).create_hierarchy()
         # local group
@@ -246,8 +281,8 @@ class CoreLimb(coreNode.CoreNode):
 
         # input matrices
         matrix_attrs = attributeUtils.add(self._input_node,
-                                          [self.INPUT_MATRIX_ATTR, self.OFFSET_MATRIX_ATTR,
-                                           self.INPUT_INVERSE_MATRIX_ATTR],
+                                          [self.INPUT_MATRIX_ATTR, self.OFFSET_MATRIX_ATTR, self.CONNECT_MATRIX_ATTR,
+                                           self.CONNECT_INVERSE_MATRIX_ATTR],
                                           attribute_type='matrix')
 
         # connect vis attr, offset attr to output attr
@@ -264,15 +299,16 @@ class CoreLimb(coreNode.CoreNode):
                                                  '{0}.{1}'.format(self._nodes_world_group, attributeUtils.VISIBILITY)])
 
         # connect input matrix to local group
-        mult_matrix_node = namingUtils.update(self._input_node, type='multMatrix', additional_description='inputMatrix')
+        mult_matrix_node = namingUtils.update(self._input_node, type='multMatrix',
+                                              additional_description=self.CONNECT_MATRIX_ATTR)
         mult_matrix_attr = nodeUtils.matrix.mult_matrix(matrix_attrs[1], matrix_attrs[0], name=mult_matrix_node)
-        constraintUtils.matrix_connect(mult_matrix_attr, self._local_group)
+        attributeUtils.connect(mult_matrix_attr, matrix_attrs[2])
+        constraintUtils.matrix_connect(matrix_attrs[2], self._local_group)
 
         # connect input inverse matrix
-        nodeUtils.matrix.inverse_matrix(mult_matrix_attr,
-                                        name=namingUtils.update(self._input_node,
-                                                                additional_description=self.INPUT_INVERSE_MATRIX_ATTR),
-                                        connect_attr=matrix_attrs[2])
+        ivs_matrix_node = namingUtils.update(self._input_node, type='inverseMatrix',
+                                             additional_description=self.CONNECT_INVERSE_MATRIX_ATTR)
+        nodeUtils.matrix.inverse_matrix(mult_matrix_attr, name=ivs_matrix_node, connect_attr=matrix_attrs[3])
 
         # store attributes
         # vis switch attributes
@@ -290,7 +326,8 @@ class CoreLimb(coreNode.CoreNode):
         # input matrix attributes
         self._input_matrix_attr = matrix_attrs[0]
         self._offset_matrix_attr = matrix_attrs[1]
-        self._input_inverse_matrix_attr = matrix_attrs[2]
+        self._connect_matrix_attr = matrix_attrs[2]
+        self._connect_inverse_matrix_attr = matrix_attrs[2]
 
     def create_node(self):
         super(CoreLimb, self).create_node()
@@ -314,6 +351,29 @@ class CoreLimb(coreNode.CoreNode):
                                                    additional_description=self._additional_description)
         self._joints = jointUtils.create_chain(self._guide_joints, self._joints, parent_node=self._joints_group)
 
+    def create_skeleton(self):
+        # create skeleton base on joints
+        if self._joints and self._create_skeleton:
+            joints = self._joints
+            # get joints from range
+            if self._skeleton_range:
+                if self._skeleton_range[1]:
+                    # cut the end
+                    joints = joints[:self._skeleton_range[1]]
+                if self._skeleton_range[0]:
+                    # cut the start
+                    joints = joints[self._skeleton_range[0]:]
+
+            # rename joints with type changed
+            self._skeleton = namingUtils.update_sequence(joints, type='bindJoint')
+            # create skeleton
+            jointUtils.create_chain(joints, self._skeleton)
+            # connect with joint
+            for jnt, skel in zip(joints, self._skeleton):
+                cmds.parentConstraint(jnt, skel, maintainOffset=False)
+                # connect scale
+                attributeUtils.connect(['scaleY', 'scaleZ'], ['scaleY', 'scaleZ'], driver=jnt, driven=skel)
+
     def connect_to_joints(self):
         pass
 
@@ -322,23 +382,15 @@ class CoreLimb(coreNode.CoreNode):
         # controls list and joints list
         attributeUtils.add(self._output_node, [self.CONTROLS_ATTR, self.JOINTS_ATTR, self.SETUP_NODES_ATTR],
                            attribute_type='message', multi=True)
+
+        # skeleton and skeleton attach attr
+        attributeUtils.add(self._output_node, self.SKELETON_ATTR, attribute_type='message', multi=True)
+
         # output matrices
         attributeUtils.add(self._output_node, [self.OUTPUT_WORLD_MATRIX_ATTR, self.OUTPUT_LOCAL_MATRIX_ATTR],
                            attribute_type='matrix', multi=True)
 
-        # add limb info to output attributes
-        # control message
-        attributeUtils.connect_nodes_to_multi_attr(self._controls, self.CONTROLS_ATTR,
-                                                   driver_attr=attributeUtils.MESSAGE, driven=self._output_node)
-        # setup nodes messages
-        attributeUtils.connect_nodes_to_multi_attr(self._setup_nodes, self.SETUP_NODES_ATTR,
-                                                   driver_attr=attributeUtils.MESSAGE, driven=self._output_node)
-        # joints message
-        attributeUtils.connect_nodes_to_multi_attr(self._joints, self.JOINTS_ATTR, driver_attr=attributeUtils.MESSAGE,
-                                                   driven=self._output_node)
-        # output world matrix
-        attributeUtils.connect_nodes_to_multi_attr(self._joints, self.OUTPUT_WORLD_MATRIX_ATTR,
-                                                   driver_attr=attributeUtils.WORLD_MATRIX, driven=self._output_node)
+    def connect_output_matrix(self):
         # output local matrix
         if self._joints:
             cmds.connectAttr('{0}.{1}'.format(self._joints[0], attributeUtils.MATRIX),
@@ -353,15 +405,46 @@ class CoreLimb(coreNode.CoreNode):
                                                                         self.OUTPUT_LOCAL_MATRIX_ATTR, i + 1))
                     parent_matrix_attr = matrix_attr
 
+        # output world matrix
+        attributeUtils.connect_nodes_to_multi_attr(self._joints, self.OUTPUT_WORLD_MATRIX_ATTR,
+                                                   driver_attr=attributeUtils.WORLD_MATRIX,
+                                                   driven=self._output_node)
+
         self._output_world_matrix_attrs = self.get_multi_attr_names(self.OUTPUT_WORLD_MATRIX_ATTR,
                                                                     node=self._output_node)
         self._output_local_matrix_attrs = self.get_multi_attr_names(self.OUTPUT_LOCAL_MATRIX_ATTR,
                                                                     node=self._output_node)
 
-        # get control objects
-        self._control_objects = [controlUtils.Control(ctrl) for ctrl in self._controls]
+    def hide_controller(self):
+        self.append_hide_controller()
+        for ctrl in self._hide_controls:
+            # remove sub controller
+            controlUtils.remove_sub(ctrl)
+            # lock hide all
+            # get all channel box attributes
+            attrs = attributeUtils.list_channel_box_attrs(ctrl)
+            attributeUtils.lock(attrs, node=ctrl)
+            # hide controller
+            controlUtils.hide_controller(ctrl)
 
-    # connect functions
+    def append_hide_controller(self):
+        pass
+
+    def connect_limb_info(self):
+        # control message
+        attributeUtils.connect_nodes_to_multi_attr(self._controls, self.CONTROLS_ATTR,
+                                                   driver_attr=attributeUtils.MESSAGE, driven=self._output_node)
+        # setup nodes messages
+        attributeUtils.connect_nodes_to_multi_attr(self._setup_nodes, self.SETUP_NODES_ATTR,
+                                                   driver_attr=attributeUtils.MESSAGE, driven=self._output_node)
+        # joints message
+        attributeUtils.connect_nodes_to_multi_attr(self._joints, self.JOINTS_ATTR, driver_attr=attributeUtils.MESSAGE,
+                                                   driven=self._output_node)
+        # skeleton message
+        attributeUtils.connect_nodes_to_multi_attr(self._skeleton, self.SKELETON_ATTR,
+                                                   driver_attr=attributeUtils.MESSAGE, driven=self._output_node)
+
+    # connect function
     def connect_input_attributes(self):
         super(CoreLimb, self).connect_input_attributes()
         if self._input_matrix:
@@ -382,8 +465,13 @@ class CoreLimb(coreNode.CoreNode):
         if self._tag_controls:
             tag_parent = self._tag_parent
             for ctrl in self._controls:
-                controlUtils.add_tag(ctrl, tag_parent)
-                tag_parent = ctrl
+                if ctrl not in self._hide_controls:
+                    controlUtils.add_tag(ctrl, tag_parent)
+                    tag_parent = ctrl
+
+    def connect_skeleton(self):
+        if self._skeleton:
+            hierarchyUtils.parent(self._skeleton[0], self._skeleton_parent)
 
     # get node info
     def get_input_info(self):
@@ -403,13 +491,14 @@ class CoreLimb(coreNode.CoreNode):
         # input attributes
         self._input_matrix_attr = '{0}.{1}'.format(self._input_node, self.INPUT_MATRIX_ATTR)
         self._offset_matrix_attr = '{0}.{1}'.format(self._input_node, self.OFFSET_MATRIX_ATTR)
-        self._input_inverse_matrix_attr = '{0}.{1}'.format(self._input_node, self.INPUT_INVERSE_MATRIX_ATTR)
+        self._connect_matrix_attr = '{0}.{1}'.format(self._input_node, self.CONNECT_MATRIX_ATTR)
+        self._connect_inverse_matrix_attr = '{0}.{1}'.format(self._input_node, self.CONNECT_INVERSE_MATRIX_ATTR)
 
     def get_output_info(self):
         super(CoreLimb, self).get_output_info()
         self._joints = self.get_multi_attr_value(self.JOINTS_ATTR, node=self._output_node)
         self._controls = self.get_multi_attr_value(self.CONTROLS_ATTR, node=self._output_node)
-        self._control_objects = [controlUtils.Control(ctrl) for ctrl in self._controls]
+        self._skeleton = self.get_multi_attr_value(self.SKELETON_ATTR, node=self._output_node)
         self._setup_nodes = self.get_multi_attr_value(self.SETUP_NODES_ATTR, node=self._output_node)
         self._output_world_matrix_attrs = self.get_multi_attr_names(self.OUTPUT_WORLD_MATRIX_ATTR,
                                                                     node=self._output_node)

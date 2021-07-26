@@ -68,15 +68,6 @@ class Rib(rotatePlaneIk.RotatePlaneIk):
         nodeUtils.arithmetic.equation('{0}*{1}'.format(self._driver_value_attr, self._twist_mult_attr),
                                       namingUtils.update(self._node, additional_description='bucketHandle'),
                                       connect_attr='{0}.{1}'.format(self._controls[-1], self.TWIST_ATTR))
-        for ctrl in self._controls:
-            # remove controller's sub control
-            controlUtils.remove_sub(ctrl)
-            # lock hide all
-            # get all channel box attributes
-            attrs = attributeUtils.list_channel_box_attrs(ctrl)
-            attributeUtils.lock(attrs, node=ctrl)
-            # hide controller
-            controlUtils.hide_controller(ctrl)
 
     def connect_input_attributes(self):
         super(Rib, self).connect_input_attributes()
@@ -87,6 +78,10 @@ class Rib(rotatePlaneIk.RotatePlaneIk):
         ivs_matrix_attr = '{0}.{1}'.format(driven, attributeUtils.PARENT_INVERSE_MATRIX)
         constraintUtils.position_constraint(self._attach_matrix_attr, driven,
                                             parent_inverse_matrices=ivs_matrix_attr, maintain_offset=True)
+
+    def append_hide_controller(self):
+        super(Rib, self).append_hide_controller()
+        self._hide_controls += self._controls
 
     def get_input_info(self):
         super(Rib, self).get_input_info()

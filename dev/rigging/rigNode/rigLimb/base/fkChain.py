@@ -13,9 +13,9 @@ class FkChain(coreLimb.CoreLimb):
         super(FkChain, self).__init__(**kwargs)
         self._lock_hide = None
         self._control_end_joint = None
-        self._lock_hide = kwargs.get('lock_hide', attributeUtils.SCALE)
-        self._additional_description = kwargs.get('additional_description', 'fk')
-        self._control_end_joint = kwargs.get('control_end_joint', False)
+        self._lock_hide = None
+        self._additional_description = None
+        self._control_end_joint = None
 
         # input attr
         self._input_hierarchy_matrix = None
@@ -54,9 +54,10 @@ class FkChain(coreLimb.CoreLimb):
         for g in guides:
             name_info = namingUtils.decompose(g)
             ctrl = controlUtils.create(name_info['description'], side=name_info['side'], index=name_info['index'],
-                                       limb_index=name_info['limb_index'], sub=True, parent=parent, position=g,
-                                       rotate_order=0, manip_orient=None, lock_hide=self._lock_hide,
-                                       input_matrix=input_matrix)
+                                       limb_index=name_info['limb_index'],
+                                       additional_description=self._additional_description,
+                                       sub=True, parent=parent, position=g, rotate_order=0, manip_orient=None,
+                                       lock_hide=self._lock_hide, input_matrix=input_matrix)
 
             # add to control list
             self._controls.append(ctrl)

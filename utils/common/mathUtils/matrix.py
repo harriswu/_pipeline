@@ -1,6 +1,9 @@
 # import external library
 import numpy
 
+# import utils
+import utils.common.apiUtils as apiUtils
+
 # constant
 # maya transform default matrix
 IDENTITY = [1.0, 0.0, 0.0, 0.0,
@@ -214,3 +217,73 @@ def four_by_four_matrix(vector_x, vector_y, vector_z, position, output_type='lis
         matrix = list_to_matrix(matrix)
 
     return matrix
+
+
+def compose(translate=None, rotate=None, scale=None, rotate_order=0):
+    """
+    compose matrix as a list with given transformation values
+
+    Args:
+        translate (list): translation values, default is [0, 0, 0]
+        rotate (list): rotation values, default is [0, 0, 0]
+        scale (list): scale values, default is [1, 1, 1]
+        rotate_order (int): current transformation values' rotate order, default is 0
+
+    Returns:
+        matrix (list)
+    """
+    # get MMatrix
+    m_matrix = apiUtils.MMatrix.compose(translate=translate, rotate=rotate, scale=scale, rotate_order=rotate_order)
+
+    matrix = apiUtils.MMatrix.to_list(m_matrix)
+
+    return matrix
+
+
+def decompose(matrix, rotate_order=0):
+    """
+    decompose given matrix list to transformation info
+
+    Args:
+        matrix (list): matrix list need to be decomposed
+        rotate_order (int): input rotate order, default is 0
+
+    Returns:
+        [translate, rotate, scale](list)
+    """
+    # get MMatrix
+    m_matrix = apiUtils.MMatrix.compose(matrix=matrix)
+    # decompose to transform values
+    return apiUtils.MMatrix.decompose(m_matrix, rotate_order=rotate_order)
+
+
+def update(matrix, translate=None, rotate=None, scale=None, rotate_order=0):
+    """
+    update given matrix with transformation values
+
+    Args:
+        matrix (list): the matrix need to be updated
+        translate (list): translation values to override the current matrix
+        rotate (list): rotation values to override the current matrix
+        scale (list): scale values to override the current matrix
+        rotate_order (int): transform values' rotate order
+
+    Returns:
+        matrix (list)
+    """
+    # decompose matrix
+    decompose_info = decompose(matrix)
+    # collect kwargs
+    kwargs = {'translate': decompose_info[0],
+              'rotate': decompose_info[1],
+              'scale': decompose_info[2],
+              'rotate_order': 0}
+    if translate:
+        kwargs.update({'translate': translate})
+    if rotate:
+        kwargs.update({'rotate': rotate,
+                       'rotate_order': rotate_order})
+    if scale:
+        kwargs.update({'scale': scale})
+    # recompose the matrix and return it
+    return compose(**kwargs)

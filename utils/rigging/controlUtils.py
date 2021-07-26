@@ -20,9 +20,12 @@ import jointUtils
 import config
 
 config_dir = os.path.dirname(config.__file__)
-SHAPE_CONFIG = fileUtils.jsonUtils.read(os.path.join(config_dir, 'CONTROL_SHAPE.cfg'))
-SIDE_CONFIG = fileUtils.jsonUtils.read(os.path.join(config_dir, 'CONTROL_SIDE_COLOR.cfg'))
-COLOR_CONFIG = fileUtils.jsonUtils.read(os.path.join(config_dir, 'CONTROL_COLOR.cfg'))
+SHAPE_CONFIG_PATH = os.path.join(config_dir, 'CONTROL_SHAPE.cfg')
+SIDE_CONFIG_PATH = os.path.join(config_dir, 'CONTROL_SIDE_COLOR.cfg')
+COLOR_CONFIG_PATH = os.path.join(config_dir, 'CONTROL_COLOR.cfg')
+SHAPE_CONFIG = fileUtils.jsonUtils.read(SHAPE_CONFIG_PATH)
+SIDE_CONFIG = fileUtils.jsonUtils.read(SIDE_CONFIG_PATH)
+COLOR_CONFIG = fileUtils.jsonUtils.read(COLOR_CONFIG_PATH)
 
 # controller's attributes
 HIERARCHY_ATTR = 'hierarchy'
@@ -378,7 +381,7 @@ class Control(object):
             curveUtils.set_display_setting(shape, display_type='normal', color=col)
 
 
-# functions
+# function
 # create/edit controller related nodes
 def create(description, side='center', index=1, limb_index=None, additional_description=None, sub=True, parent=None,
            position=None, rotate_order=0, manip_orient=None, lock_hide=None, shape='cube', color=None, size=1,
@@ -1083,7 +1086,7 @@ def transform_shape(ctrl_shape, translate=None, rotate=None, scale=None, pivot='
         ctrl_shape = [ctrl_shape]
 
     # compose offset matrix
-    offset_matrix = transformUtils.compose_matrix(translate=translate, rotate=rotate, scale=scale)
+    offset_matrix = mathUtils.matrix.compose(translate=translate, rotate=rotate, scale=scale)
     # convert to numpy
     offset_matrix = mathUtils.matrix.list_to_matrix(offset_matrix)
 
@@ -1091,6 +1094,7 @@ def transform_shape(ctrl_shape, translate=None, rotate=None, scale=None, pivot='
         if cmds.objExists(shape):
             # get cv positions
             control_vertices = curveUtils.get_shape_info(shape)['control_vertices']
+
             # get pivot position
             if pivot == 'shape':
                 pivot_pos = transformUtils.bounding_box(control_vertices)[2]
@@ -1099,17 +1103,18 @@ def transform_shape(ctrl_shape, translate=None, rotate=None, scale=None, pivot='
             # convert to numpy
             pivot_matrix = mathUtils.matrix.four_by_four_matrix([1, 0, 0], [0, 1, 0], [0, 0, 1], pivot_pos,
                                                                 output_type='numpy')
-
             # get control vertices local positions
             pivot_matrix_invs = mathUtils.matrix.inverse(pivot_matrix, output_type='numpy')
             control_vertices_local = mathUtils.point.array_mult_matrix(control_vertices, pivot_matrix_invs,
                                                                        output_type='numpy')
+
             # get the offset matrix
-            control_offset_matrix = mathUtils.matrix.multiply(pivot_matrix, offset_matrix, output_type='numpy')
+            control_offset_matrix = mathUtils.matrix.multiply(offset_matrix, pivot_matrix, output_type='numpy')
 
             # get control vertices position
             control_vertices = mathUtils.point.array_mult_matrix(control_vertices_local, control_offset_matrix,
                                                                  output_type='list')
+
             # set position
             curveUtils.set_points(shape, control_vertices)
 
@@ -1159,7 +1164,7 @@ def mirror_shape(ctrl_source, ctrl_target, mirror_space=None):
         ctrl_target.append(ctrl_sub_target)
 
     # get mirror space matrix
-    mirror_space_matrix = transformUtils.compose_matrix(scale=mirror_space)
+    mirror_space_matrix = mathUtils.matrix.compose(scale=mirror_space)
 
     for c_s, c_t in zip(ctrl_source, ctrl_target):
         # get source control vertices
@@ -1252,7 +1257,41 @@ def import_data(file_path, control_list=None, exception_list=None, size=1):
     build_data(ctrl_info, control_list=control_list, exception_list=exception_list, size=size)
 
 
-# sub functions
+# control shape config info
+def append_config(curves):
+    """
+    add given curve shapes to the control's preset
+
+    Args:
+        curves (str/list): curves names, the curve transform name will be saved as key in control shape config
+    """
+    config_shape_info = fileUtils.jsonUtils.read(SHAPE_CONFIG_PATH)
+
+    if isinstance(curves, basestring):
+        curves = [curves]
+
+    for crv in curves:
+        # get shape info
+        crv_shape_info = curveUtils.get_shape_info(crv)
+        # update preset info
+        config_shape_info.update({crv: crv_shape_info})
+
+    # overwrite preset
+    fileUtils.jsonUtils.write(SHAPE_CONFIG_PATH, config_shape_info)
+
+
+def get_config_shapes():
+    """
+    get control shape config's shape names
+
+    Returns:
+        shape_names (list)
+    """
+    config_shape_info = fileUtils.jsonUtils.read(SHAPE_CONFIG_PATH)
+    return config_shape_info.keys()
+
+
+# sub function
 def _add_shape(ctrl, shape='cube', size=1, color=None, color_multiplier=1, shape_info=None):
     """
     add shape node to controller

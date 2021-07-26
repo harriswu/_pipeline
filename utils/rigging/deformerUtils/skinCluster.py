@@ -15,7 +15,7 @@ import utils.modeling.curveUtils as curveUtils
 import utils.modeling.surfaceUtils as surfaceUtils
 
 
-# functions
+# function
 # create/edit skin cluster
 def get(geo):
     """
@@ -409,7 +409,7 @@ def get_MFnSkinCluster(skin_cluster):
     return mfn_skin
 
 
-# sub functions
+# sub function
 def _get_components_info(mfn_skin):
     """
     get MDagPath and MObject for components attached to the skin cluster

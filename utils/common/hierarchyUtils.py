@@ -5,7 +5,7 @@ import warnings
 import maya.cmds as cmds
 
 
-# functions
+# function
 def parent(child_nodes, parent_node):
     """
     parent nodes under given parent node,

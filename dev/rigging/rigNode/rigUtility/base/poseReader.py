@@ -110,12 +110,15 @@ class PoseReader(coreUtility.CoreUtility):
     def add_output_attributes(self):
         super(PoseReader, self).add_output_attributes()
         attributeUtils.add(self._output_node, self.OUTPUTS_ATTR, attribute_type='float', multi=True)
-        attributeUtils.connect_nodes_to_multi_attr(self._weights, self.OUTPUTS_ATTR, driven=self._output_node)
-        self._outputs_attr = self.get_multi_attr_names(self.OUTPUTS_ATTR, node=self._output_node)
 
     def connect_input_attributes(self):
         super(PoseReader, self).connect_input_attributes()
         attributeUtils.connect(self._input_matrix, self._input_matrix_attr)
+
+    def connect_output_attributes(self):
+        super(PoseReader, self).connect_output_attributes()
+        attributeUtils.connect_nodes_to_multi_attr(self._weights, self.OUTPUTS_ATTR, driven=self._output_node)
+        self._outputs_attr = self.get_multi_attr_names(self.OUTPUTS_ATTR, node=self._output_node)
 
     def get_input_info(self):
         super(PoseReader, self).get_input_info()

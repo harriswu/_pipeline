@@ -18,8 +18,6 @@ class AimFk(fkChain.FkChain):
 
     def create_controls(self):
         super(AimFk, self).create_controls()
-        print self._side
-        print self._node
         # create piston setup
         build_kwargs = ({'additional_description': ['aim'],
                          'parent_node': self._sub_nodes_group,

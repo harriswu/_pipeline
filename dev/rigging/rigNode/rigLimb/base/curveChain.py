@@ -102,6 +102,9 @@ class CurveChain(coreLimb.CoreLimb):
     def add_output_attributes(self):
         super(CurveChain, self).add_output_attributes()
         attributeUtils.add(self._output_node, [self.CURVE_ATTR, self.UP_CURVE_ATTR], attribute_type='message')
+        
+    def connect_limb_info(self):
+        super(CurveChain, self).connect_limb_info()
         attributeUtils.connect('{0}.{1}'.format(self._curve, attributeUtils.MESSAGE),
                                self.CURVE_ATTR, driven=self._output_node)
         if self._up_curve:
@@ -211,7 +214,7 @@ class CurveChain(coreLimb.CoreLimb):
                                                              aim_vector=self._aim_vector,
                                                              up_vector=self._up_vector, aim_type=self._aim_type,
                                                              up_curve=self._up_curve,
-                                                             parent_inverse_matrix=self.INPUT_INVERSE_MATRIX_ATTR,
+                                                             parent_inverse_matrix=self.CONNECT_INVERSE_MATRIX_ATTR,
                                                              force=True)
 
     def connect_joints(self):

@@ -4,6 +4,7 @@ import utils.common.namingUtils as namingUtils
 import utils.common.mathUtils as mathUtils
 import utils.common.attributeUtils as attributeUtils
 import utils.common.nodeUtils as nodeUtils
+import utils.rigging.constraintUtils as constraintUtils
 
 import rigGroup
 import dev.rigging.utils.spaceUtils as spaceUtils
@@ -25,6 +26,9 @@ class MultiBlend(rigGroup.RigGroup):
         self._scale = False
         self._defaults = None
         self._blend_input_matrix = False
+        self._blend_input_matrix_translate = False
+        self._blend_input_matrix_rotate = False
+        self._blend_input_matrix_scale = False
 
         self._input_mode_attrs = None
         self._input_blend_attr = None
@@ -64,20 +68,25 @@ class MultiBlend(rigGroup.RigGroup):
     @property
     def show_all_attr(self):
         return self._show_all_attr
-    
+
     def get_connect_kwargs(self, **kwargs):
         super(MultiBlend, self).get_connect_kwargs(**kwargs)
         self._translate = kwargs.get('translate', False)
         self._rotate = kwargs.get('rotate', True)
         self._scale = kwargs.get('scale', False)
         self._defaults = kwargs.get('defaults', [])
-        self._blend_input_matrix = kwargs.get('blend_input_matrix', False)
+        self._blend_input_matrix_translate = kwargs.get('blend_input_matrix_translate', False)
+        self._blend_input_matrix_rotate = kwargs.get('blend_input_matrix_rotate', False)
+        self._blend_input_matrix_scale = kwargs.get('blend_input_matrix_scale', False)
 
         self._input_mode_attrs = kwargs.get('input_mode_attrs', None)
         self._input_blend_attr = kwargs.get('input_blend_attr', None)
         self._input_show_all_attr = kwargs.get('input_show_all_attr', None)
 
         self._extra_inputs = kwargs.get('extra_inputs', [])
+
+        if self._blend_input_matrix_translate or self._blend_input_matrix_rotate or self._blend_input_matrix_scale:
+            self._blend_input_matrix = True
 
     def flip_connect_kwargs(self):
         super(MultiBlend, self).flip_connect_kwargs()
@@ -137,7 +146,7 @@ class MultiBlend(rigGroup.RigGroup):
             matrix_attr = attributeUtils.add(self._input_node, mode, attribute_type='matrix', multi=True)[0]
 
             # get limb object
-            limb_obj = limbUtils.get_limb_object(limb_node)
+            limb_obj = limbUtils.info.get_limb_object(limb_node)
             # connect matrices
             attributeUtils.connect_nodes_to_multi_attr(limb_obj.joints, matrix_attr, driver_attr=attributeUtils.MATRIX)
             # update joints matrices dictionary
@@ -150,7 +159,7 @@ class MultiBlend(rigGroup.RigGroup):
                                                        namingUtils.to_camel_case(mode + 'InputMatrix'),
                                                        attribute_type='matrix', multi=False)[0]
                 # connect with limb's input matrix
-                attributeUtils.connect(limb_obj.input_matrix_attr, input_matrix_attr)
+                attributeUtils.connect(limb_obj.connect_matrix_attr, input_matrix_attr)
                 # update input matrices dictionary
                 self._blend_matrices['input_matrix'].update({mode: input_matrix_attr})
 
@@ -206,23 +215,25 @@ class MultiBlend(rigGroup.RigGroup):
             build_kwargs = ({'additional_description': ['inputMatrixBlend'],
                              'parent_node': self._sub_nodes_group})
             connect_kwargs = {'input_matrices': self._blend_matrices['input_matrix'],
-                              'translate': True,
-                              'rotate': True,
-                              'scale': True,
+                              'translate': self._blend_input_matrix_translate,
+                              'rotate': self._blend_input_matrix_rotate,
+                              'scale': self._blend_input_matrix_scale,
                               'input_space_attrs': self._mode_attrs,
                               'input_blend_attr': self._blend_attrs[0]}
             blend_node = self.create_rig_node('dev.rigging.rigNode.rigUtility.base.spaceBlend',
                                               name_template=self._node,
                                               build=True, build_kwargs=build_kwargs,
                                               connect=True, connect_kwargs=connect_kwargs, flip=self._flip)
-            # get blend matrix value
-            blend_matrix = cmds.getAttr(blend_node.blend_matrix_attr)
-            # compute offset matrix
-            offset_matrix = mathUtils.matrix.localize(mathUtils.matrix.IDENTITY, blend_matrix, output_type='list')
-            # set offset matrix
-            cmds.setAttr(self._offset_matrix_attr, offset_matrix, type='matrix')
-            # connect input matrix
-            attributeUtils.connect(blend_node.blend_matrix_attr, self._input_matrix_attr, force=True)
+            # override connections with related nodes
+            if self._blend_input_matrix_translate or self._blend_input_matrix_rotate:
+                if self._blend_input_matrix_translate:
+                    skip = attributeUtils.ROTATE
+                else:
+                    skip = attributeUtils.TRANSLATE
+                constraintUtils.position_constraint(blend_node.blend_matrix_attr, self._local_group,
+                                                    maintain_offset=False, skip=skip, force=True)
+            if self._blend_input_matrix_scale:
+                constraintUtils.scale_constraint(blend_node.blend_matrix_attr, self._local_group, force=True)
 
         # create blend node for extra inputs
         for attr, input_matrices in self._blend_matrices.iteritems():
@@ -299,16 +310,9 @@ class MultiBlend(rigGroup.RigGroup):
             # get limb node
             limb_node = self._input_limbs[mode]
             # get limb object
-            limb_obj = limbUtils.get_limb_object(limb_node)
+            limb_obj = limbUtils.info.get_limb_object(limb_node)
             # add control vis offset to list
             vis_attrs.append(limb_obj.controls_vis_attr)
-            # connect joint vis and node vis
-            attributeUtils.connect([self._controls_vis_output_attr,
-                                    self._joints_vis_output_attr,
-                                    self._nodes_vis_output_attr],
-                                   [limb_obj.controls_vis_offset_attr,
-                                    limb_obj.joints_vis_offset_attr,
-                                    limb_obj.nodes_vis_offset_attr])
 
         # connect multi switch output to attributes
         attributeUtils.connect(self._multi_switch_output_attr, vis_attrs)

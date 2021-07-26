@@ -2,7 +2,7 @@
 import cPickle
 
 
-# functions
+# function
 def read(file_path):
     """
     read data from the given cPickle file path

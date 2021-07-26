@@ -55,6 +55,9 @@ class SpaceBlend(coreUtility.CoreUtility):
     def blend_matrix_attr(self):
         return self._blend_matrix_attr
 
+    def get_build_kwargs(self, **kwargs):
+        super(SpaceBlend, self).get_build_kwargs(**kwargs)
+
     def get_connect_kwargs(self, **kwargs):
         super(SpaceBlend, self).get_connect_kwargs(**kwargs)
         self._input_matrices = kwargs.get('input_matrices', {})
@@ -93,11 +96,12 @@ class SpaceBlend(coreUtility.CoreUtility):
         super(SpaceBlend, self).create_hierarchy()
         self._position_constraints_group = transformUtils.create(namingUtils.update(self._node, type='group',
                                                                                     additional_description='position'),
-                                                                 lock_hide=attributeUtils.ALL, parent=self._node)
+                                                                 lock_hide=attributeUtils.ALL,
+                                                                 parent=self._compute_node)
 
         self._scale_constraints_group = transformUtils.create(namingUtils.update(self._node, type='group',
                                                                                  additional_description='scale'),
-                                                              lock_hide=attributeUtils.ALL, parent=self._node)
+                                                              lock_hide=attributeUtils.ALL, parent=self._compute_node)
 
     def add_input_attributes_post(self):
         super(SpaceBlend, self).add_input_attributes_post()

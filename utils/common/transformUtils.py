@@ -9,7 +9,7 @@ import hierarchyUtils
 import utils.modeling.curveUtils as curveUtils
 
 
-# functions
+# function
 def create(name, lock_hide=None, parent=None, rotate_order=0, visibility=True, position=None, matrix=None,
            inherits_transform=True):
     """
@@ -124,44 +124,6 @@ def create_along_curve(curve, number, node_type='group', additional_description=
     return transform_nodes
 
 
-def compose_matrix(translate=None, rotate=None, scale=None, rotate_order=0):
-    """
-    compose matrix as a list with given transformation values
-
-    Args:
-        translate (list): translation values, default is [0, 0, 0]
-        rotate (list): rotation values, default is [0, 0, 0]
-        scale (list): scale values, default is [1, 1, 1]
-        rotate_order (int): current transform values' rotate order, default is 0
-
-    Returns:
-        matrix (list)
-    """
-    # get MMatrix
-    m_matrix = apiUtils.MMatrix.compose(translate=translate, rotate=rotate, scale=scale, rotate_order=rotate_order)
-
-    matrix = apiUtils.MMatrix.to_list(m_matrix)
-
-    return matrix
-
-
-def decompose_matrix(matrix, rotate_order=0):
-    """
-    decompose given matrix list to transformation info
-
-    Args:
-        matrix (list): matrix list need to be decomposed
-        rotate_order (int): input rotate order, default is 0
-
-    Returns:
-        [translate, rotate, scale](list)
-    """
-    # get MMatrix
-    m_matrix = apiUtils.MMatrix.compose(matrix=matrix)
-    # decompose to transform values
-    return apiUtils.MMatrix.decompose(m_matrix, rotate_order=rotate_order)
-
-
 def bounding_box(nodes):
     """
     get given nodes/pos bounding box info
@@ -228,7 +190,7 @@ def set_position(nodes, position, rotate_order=0, translate=True, rotate=True, s
                                 scale=scale)
 
 
-# sub functions
+# sub function
 def _snap_node_position(node, position, rotate_order=0, translate=True, rotate=True, scale=False):
     """
     snap node to given transform or position

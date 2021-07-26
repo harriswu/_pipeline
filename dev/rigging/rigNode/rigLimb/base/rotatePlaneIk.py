@@ -81,11 +81,14 @@ class RotatePlaneIk(ikHandleLimb.IkHandle):
                                                         attribute_type='matrix')[0]
 
         if self._stretch:
-            self._stretch_attr = attributeUtils.add(self._input_node, self.STRETCH_ATTR, attribute_type='bool')[0]
+            self._stretch_attr = attributeUtils.add(self._input_node, self.STRETCH_ATTR, attribute_type='float',
+                                                    value_range=[0, 1])[0]
         if self._pv_lock:
-            self._pv_lock_attr = attributeUtils.add(self._input_node, self.PV_LOCK_ATTR, attribute_type='bool')[0]
+            self._pv_lock_attr = attributeUtils.add(self._input_node, self.PV_LOCK_ATTR, attribute_type='float',
+                                                    value_range=[0, 1])[0]
         if self._soft_ik:
-            self._soft_ik_attr = attributeUtils.add(self._input_node, self.SOFT_IK_ATTR, attribute_type='bool')[0]
+            self._soft_ik_attr = attributeUtils.add(self._input_node, self.SOFT_IK_ATTR, attribute_type='float',
+                                                    value_range=[0, 1])[0]
 
     def create_controls(self):
         super(RotatePlaneIk, self).create_controls()
@@ -106,11 +109,11 @@ class RotatePlaneIk(ikHandleLimb.IkHandle):
 
         # add attributes
         if self._stretch:
-            attributeUtils.add(self._controls[-1], self.STRETCH_ATTR, attribute_type='bool')
+            attributeUtils.add(self._controls[-1], self.STRETCH_ATTR, attribute_type='float', value_range=[0, 1])
         if self._pv_lock:
-            attributeUtils.add(self._controls[-1], self.PV_LOCK_ATTR, attribute_type='bool')
+            attributeUtils.add(self._controls[-1], self.PV_LOCK_ATTR, attribute_type='float', value_range=[0, 1])
         if self._soft_ik:
-            attributeUtils.add(self._controls[-1], self.SOFT_IK_ATTR, attribute_type='bool')
+            attributeUtils.add(self._controls[-1], self.SOFT_IK_ATTR, attribute_type='float', value_range=[0, 1])
 
     def create_setup(self):
         super(RotatePlaneIk, self).create_setup()
@@ -129,8 +132,8 @@ class RotatePlaneIk(ikHandleLimb.IkHandle):
         for i, start_node in enumerate(self._setup_nodes[:-1]):
             end_node = self._setup_nodes[i+1]
             # get position
-            start_node_pos = cmds.xform(start_node, query=True, translation=True)
-            end_node_pos = cmds.xform(end_node, query=True, translation=True)
+            start_node_pos = cmds.xform(start_node, query=True, translation=True, worldSpace=True)
+            end_node_pos = cmds.xform(end_node, query=True, translation=True, worldSpace=True)
             # get length
             length = mathUtils.point.get_distance(start_node_pos, end_node_pos)
             # add to list
@@ -247,8 +250,9 @@ class RotatePlaneIk(ikHandleLimb.IkHandle):
                                                                      name)
 
         # get soft weight
-        equation = '(({0} - {1})/(1 - {1}))**2 * ' \
-                   '((1 - {0}*{0}*({0} - 3)*({0} - 1))**0.5 - 1)'.format(self._stretch_ratio_attr, soft_start_ratio)
+        equation = '(({0}-{1})/(1-{1}))**2 * ' \
+                   '((1-{0}*{0}*({0}-3)*({0}-1))**0.5-1)'.format(self._stretch_ratio_attr, soft_start_ratio)
+
         name = namingUtils.update(self._node, additional_description='softWeight')
 
         soft_weight_attr = nodeUtils.arithmetic.equation(equation, name)
@@ -302,6 +306,22 @@ class RotatePlaneIk(ikHandleLimb.IkHandle):
                                                self._setup_nodes[0],
                                                ik_parent_inverse_matrix='{0}.{1}'.format(self._ik_groups[0],
                                                                                          attributeUtils.INVERSE_MATRIX))
+
+        # constraint controller's rotation with end joint
+        parent_matrices = []
+        for node in self._setup_nodes[-2::-1]:
+            parent_matrices.append('{0}.{1}'.format(node, attributeUtils.MATRIX))
+        mult_matrix_attr = nodeUtils.matrix.mult_matrix(*parent_matrices,
+                                                        name=namingUtils.update(self._setup_nodes[-1],
+                                                                                type='multMatrix',
+                                                                                additional_description='rot'))
+        ivs_matrix_attr = nodeUtils.matrix.inverse_matrix(mult_matrix_attr,
+                                                          name=namingUtils.update(self._setup_nodes[-1],
+                                                                                  type='inverseMatrix',
+                                                                                  additional_description='rot'))
+        constraintUtils.position_constraint('{0}.{1}'.format(self._controls[-1], controlUtils.OUT_MATRIX_ATTR),
+                                            self._setup_nodes[-1], parent_inverse_matrices=ivs_matrix_attr,
+                                            maintain_offset=True, skip=attributeUtils.TRANSLATE)
 
         # connect ik group with controller
         constraintUtils.position_constraint('{0}.{1}'.format(self._controls[-1], controlUtils.OUT_MATRIX_ATTR),

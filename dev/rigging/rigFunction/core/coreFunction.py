@@ -29,7 +29,7 @@ class CoreFunction(coreBuild.CoreBuild):
         self.get_build_setting()
 
         for key in self._build_list['build']['keys']:
-            self._build_list['build']['functions'][key]()
+            self._build_list['build']['function'][key]()
 
     def connect(self, **kwargs):
         self.register_connect_kwargs(**kwargs)
@@ -37,4 +37,4 @@ class CoreFunction(coreBuild.CoreBuild):
         self.get_connect_setting()
 
         for key in self._build_list['connect']['keys']:
-            self._build_list['connect']['functions'][key]()
+            self._build_list['connect']['function'][key]()

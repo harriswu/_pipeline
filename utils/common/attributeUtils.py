@@ -31,7 +31,7 @@ WORLD_INVERSE_MATRIX = 'worldInverseMatrix[0]'
 MESSAGE = 'message'
 
 
-# functions
+# function
 def add(node, attrs, nice_name=None, attribute_type='float', value_range=None, default_value=None, keyable=True,
         channel_box=True, enum_name='', multi=False, lock_attr=False, parent=None):
     """
@@ -67,7 +67,7 @@ def add(node, attrs, nice_name=None, attribute_type='float', value_range=None, d
     if isinstance(attrs, basestring):
         attrs = [attrs]
 
-    if not isinstance(nice_name, basestring):
+    if not isinstance(nice_name, list):
         nice_name = [nice_name] * len(attrs)
 
     # get default value
@@ -767,7 +767,7 @@ def set_connect_3d_attr(attr, value, attr_suffix='XYZ', force=True):
             set_connect_single_attr(attr + attr_suffix[i], v, force=force)
 
 
-# sub functions
+# sub function
 def _connect_single_attr(driver_attr, driven_attr, driver=None, driven=None, force=True):
     """
     Args:

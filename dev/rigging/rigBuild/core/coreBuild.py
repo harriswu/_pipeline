@@ -7,9 +7,9 @@ class CoreBuild(object):
         self._node_path = inspect.getmodule(self.__class__).__name__
 
         # build sections
-        self._build_list = {'build': {'functions': {},
+        self._build_list = {'build': {'function': {},
                                       'keys': []},
-                            'connect': {'functions': {},
+                            'connect': {'function': {},
                                         'keys': []}}
 
     @property
@@ -39,4 +39,4 @@ class CoreBuild(object):
         else:
             self._build_list[section]['keys'].append(name)
 
-        self._build_list[section]['functions'].update({name: function})
+        self._build_list[section]['function'].update({name: function})

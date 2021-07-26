@@ -47,6 +47,7 @@ class RigGroup(coreLimb.CoreLimb):
     def flip_connect_kwargs(self):
         super(RigGroup, self).flip_connect_kwargs()
         self._input_limbs = namingUtils.flip_names(self._input_limbs)
+        self._extra_attributes = namingUtils.flip_names(self._extra_attributes)
 
     def register_steps(self):
         super(RigGroup, self).register_steps()
@@ -84,7 +85,7 @@ class RigGroup(coreLimb.CoreLimb):
         for attr in self._extra_attributes.keys():
             for limb_node in self._input_limbs.values():
                 # get limb object
-                limb_object = limbUtils.get_limb_object(limb_node)
+                limb_object = limbUtils.info.get_limb_object(limb_node)
                 # check if limb has the attribute
                 if hasattr(limb_object, attr + '_attr'):
                     # connect together
@@ -99,12 +100,26 @@ class RigGroup(coreLimb.CoreLimb):
             cmds.connectAttr('{0}.{1}'.format(limb_node, attributeUtils.MESSAGE),
                              '{0}[{1}]'.format(self._limb_nodes_attr, i))
 
+    def connect_output_attributes(self):
+        super(RigGroup, self).connect_output_attributes()
+        # connect vis switch to limb's vis offset attr
+        for limb_node in self._input_limbs.values():
+            # get limb object
+            limb_obj = limbUtils.info.get_limb_object(limb_node)
+            # connect vis switch
+            attributeUtils.connect([self._controls_vis_output_attr,
+                                    self._joints_vis_output_attr,
+                                    self._nodes_vis_output_attr],
+                                   [limb_obj.controls_vis_offset_attr,
+                                    limb_obj.joints_vis_offset_attr,
+                                    limb_obj.nodes_vis_offset_attr])
+
     def pack_limbs(self):
         # re-parent limb node to sub node group
         for key, node in self._input_limbs.iteritems():
             hierarchyUtils.parent(node, self._sub_nodes_group)
             # get limb object
-            limb_object = limbUtils.get_limb_object(node)
+            limb_object = limbUtils.info.get_limb_object(node)
             # add to class as attribute
             self.add_object_attribute(key, limb_object)
 
@@ -117,6 +132,6 @@ class RigGroup(coreLimb.CoreLimb):
         # loop into each limb node and add as attribute to class
         for key, node in zip(self._limb_keys, limb_nodes):
             # get limb object
-            limb_obj = limbUtils.get_limb_object(node)
+            limb_obj = limbUtils.info.get_limb_object(node)
             # add to class
             self.add_object_attribute(key, limb_obj)

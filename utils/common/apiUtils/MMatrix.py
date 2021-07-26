@@ -5,7 +5,7 @@ import math
 import maya.api.OpenMaya as OpenMaya2
 
 
-# functions
+# function
 def compose(translate=None, rotate=None, scale=None, rotate_order=0, matrix=None):
     """
     compose MMatrix with given transform values

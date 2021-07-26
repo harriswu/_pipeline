@@ -12,6 +12,7 @@ import utils.rigging.constraintUtils as constraintUtils
 import utils.rigging.deformerUtils as deformerUtils
 
 import dev.rigging.rigNode.rigLimb.core.ikHandle as ikHandleLimb
+import dev.rigging.utils.limbUtils as limbUtils
 
 
 class SplineIk(ikHandleLimb.IkHandle):
@@ -69,6 +70,9 @@ class SplineIk(ikHandleLimb.IkHandle):
         self._stretch_min = kwargs.get('stretch_min', 1)
         self._stretch_clamp_max = kwargs.get('stretch_clamp_max', 0)
         self._stretch_max = kwargs.get('stretch_max', 2)
+
+        if self._hide_root_control:
+            self._root_local_control = False
 
     def flip_connect_kwargs(self):
         super(SplineIk, self).flip_connect_kwargs()
@@ -252,42 +256,12 @@ class SplineIk(ikHandleLimb.IkHandle):
             cmds.connectAttr(shape + '.worldSpace[0]', curve_info + '.inputCurve')
             curve_info_nodes.append(curve_info)
 
-        # divide to get stretch weight
-        stretch_weight_attr = nodeUtils.arithmetic.equation('{0}.arcLength/{1}.arcLength'.format(curve_info_nodes[0],
-                                                                                                 curve_info_nodes[1]),
-                                                            namingUtils.update(self._curves[-1],
-                                                                               additional_description='stretchWeight'))
-
-        # use blender node to blend min and max values
-        name = namingUtils.update(self._curves[-1], type='blendColors', additional_description='stretchMaxClamp')
-        blend_max = nodeUtils.utility.blend_colors(self._stretch_clamp_max_attr, self._stretch_max_attr,
-                                                   stretch_weight_attr, name=name) + 'R'
-
-        name = namingUtils.update(self._curves[-1], type='blendColors', additional_description='stretchMinClamp')
-        blend_min = nodeUtils.utility.blend_colors(self._stretch_clamp_min_attr, self._stretch_min_attr,
-                                                   stretch_weight_attr, name=name) + 'R'
-
-        # use condition to clamp min and max weights
-        max_weight_attr = nodeUtils.utility.condition(stretch_weight_attr, self._stretch_max_attr, blend_max,
-                                                      stretch_weight_attr,
-                                                      name=namingUtils.update(self._curves[-1], type='condition',
-                                                                              additional_description='stretchMax'),
-                                                      operation='>') + 'R'
-        min_weight_attr = nodeUtils.utility.condition(stretch_weight_attr, self._stretch_min_attr, blend_min,
-                                                      max_weight_attr,
-                                                      name=namingUtils.update(self._curves[-1], type='condition',
-                                                                              additional_description='stretchMin'),
-                                                      operation='<') + 'R'
-
-        # blend with original weight value to turn it on and off
-        name = namingUtils.update(self._curves[-1], type='blendColors', additional_description='stretchWeight')
-        blend_stretch = nodeUtils.utility.blend_colors(self._stretch_attr, min_weight_attr, 1, name=name) + 'R'
-        # loop into each setup node and multiply translate X to do stretch
-        for node in self._setup_nodes[1:]:
-            tx_val = cmds.getAttr(node + '.translateX')
-            nodeUtils.arithmetic.equation('{0}*{1}'.format(tx_val, blend_stretch),
-                                          namingUtils.update(node, additional_description='stretch'),
-                                          connect_attr=node + '.translateX')
+        # add stretchy setup
+        limbUtils.function.stretchyUtils.add_stretchy(self._setup_nodes, self._curves[-1], self._stretch_attr,
+                                                      curve_info_nodes[0] + '.arcLength',
+                                                      curve_info_nodes[1] + '.arcLength',
+                                                      self._stretch_max_attr, self._stretch_min_attr,
+                                                      self._stretch_clamp_max_attr, self._stretch_clamp_min_attr)
 
     def connect_to_joints(self):
         if self._root_local_control:

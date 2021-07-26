@@ -2,7 +2,7 @@
 import maya.api.OpenMaya as OpenMaya2
 
 
-# functions
+# function
 def create(*nodes):
     """
     create MSelectionList with given nodes added

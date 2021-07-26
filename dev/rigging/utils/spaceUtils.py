@@ -14,7 +14,7 @@ SPACE_CONFIG = fileUtils.jsonUtils.read(os.path.join(config_dir, 'SPACE.cfg'))
 CUSTOM_INDEX = 100
 
 
-# functions
+# function
 def sort_spaces(spaces, default_values=None, custom_index=CUSTOM_INDEX):
     """
     get spaces ordered based on config indexes
@@ -59,7 +59,7 @@ def sort_spaces(spaces, default_values=None, custom_index=CUSTOM_INDEX):
     return spaces, default_indexes
 
 
-def add_blend_attr(spaces, node, default_indexes, name='space'):
+def add_blend_attr(spaces, node, default_indexes, blend_value=0, name='space'):
     """
     add space blend attributes
 
@@ -68,6 +68,7 @@ def add_blend_attr(spaces, node, default_indexes, name='space'):
                               it must be sorted, use sort_spaces function to get the spaces
         node (str): add attributes to the given node
         default_indexes (list): default space indexes
+        blend_value (float): default blend value between first and second spaces, default is 0
         name (str): attribute name, will use this name for three attributes
                     (name)A: first space
                     (name)B: second space
@@ -96,5 +97,8 @@ def add_blend_attr(spaces, node, default_indexes, name='space'):
                                   connect_attr=space_blend_attrs[-1])
     # lock and hide reverse blend attr
     attributeUtils.lock(space_blend_attrs[-1], channel_box=False)
+
+    # set blend value
+    attributeUtils.set_value(space_blend_attrs[-2], blend_value)
 
     return space_blend_attrs

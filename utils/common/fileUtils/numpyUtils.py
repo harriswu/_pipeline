@@ -2,7 +2,7 @@
 import numpy
 
 
-# functions
+# function
 def read(file_path):
     """
     read data from the given numpy file path

@@ -14,6 +14,7 @@ class FingerFk(fkChain.FkChain):
     # constant attribute
     DRIVER_MATRIX_ATTR = 'driverMatrix'
     DRIVER_WEIGHT_ATTR = 'driverWeight'
+    DRIVER_WEIGHT_RVS_ATTR = 'driverWeightRvs'
 
     def __init__(self, **kwargs):
         super(FingerFk, self).__init__(**kwargs)
@@ -25,6 +26,7 @@ class FingerFk(fkChain.FkChain):
 
         self._driver_matrix_attr = None
         self._driver_weight_attr = None
+        self._driver_weight_rvs_attr = None
 
     @property
     def driver_matrix_attr(self):
@@ -51,6 +53,13 @@ class FingerFk(fkChain.FkChain):
                                                       attribute_type='float', value_range=[0, 1],
                                                       default_value=self._driver_weight)[0]
 
+        self._driver_weight_rvs_attr = attributeUtils.add(self._input_node, self.DRIVER_WEIGHT_RVS_ATTR,
+                                                          attribute_type='float')[0]
+        nodeUtils.arithmetic.equation('~' + self._driver_weight_attr,
+                                      namingUtils.update(self._node,
+                                                         additional_description=self.DRIVER_WEIGHT_RVS_ATTR),
+                                      connect_attr=self._driver_weight_rvs_attr)
+
     def create_setup(self):
         super(FingerFk, self).create_setup()
         # check if follow metacarpal rotation
@@ -76,8 +85,8 @@ class FingerFk(fkChain.FkChain):
         driven = controlUtils.get_hierarchy_node(self._controls[1], 'driven')
         connect = controlUtils.get_hierarchy_node(self._controls[1], 'connect')
         constraintUtils.position_constraint([self._driver_matrix_attr, '{0}.{1}'.format(driven, attributeUtils.MATRIX)],
-                                            connect, weights=self._driver_weight_attr, maintain_offset=True,
-                                            skip=attributeUtils.TRANSLATE)
+                                            connect, weights=[self._driver_weight_attr, self._driver_weight_rvs_attr],
+                                            maintain_offset=True, skip=attributeUtils.TRANSLATE)
 
     def connect_input_attributes(self):
         super(FingerFk, self).connect_input_attributes()

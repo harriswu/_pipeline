@@ -7,6 +7,7 @@ import utils.rigging.controlUtils as controlUtils
 import utils.rigging.constraintUtils as constraintUtils
 
 import dev.rigging.rigNode.rigLimb.core.ikHandle as ikHandleLimb
+import dev.rigging.utils.limbUtils as limbUtils
 
 
 class SingleChainIk(ikHandleLimb.IkHandle):
@@ -122,32 +123,8 @@ class SingleChainIk(ikHandleLimb.IkHandle):
         # get distance
         distance = cmds.getAttr(dis_stretch + '.distance')
 
-        # divide to get stretch weight
-        stretch_weight_attr = nodeUtils.arithmetic.equation('{0}.distance/{1}'.format(dis_stretch, distance),
-                                                            namingUtils.update(self._controls[-1],
-                                                                               additional_description='stretchWeight'))
-
-        # use blender node to blend min and max values
-        name = namingUtils.update(self._controls[-1], type='blendColors', additional_description='stretchMaxClamp')
-        blend_max = nodeUtils.utility.blend_colors(self._stretch_clamp_max_attr, self._stretch_max_attr,
-                                                   stretch_weight_attr, name=name) + 'R'
-
-        name = namingUtils.update(self._controls[-1], type='blendColors', additional_description='stretchMinClamp')
-        blend_min = nodeUtils.utility.blend_colors(self._stretch_clamp_min_attr, self._stretch_min_attr,
-                                                   stretch_weight_attr, name=name) + 'R'
-
-        # use remap to clamp the value
-        remap_stretch = nodeUtils.utility.remap_value(stretch_weight_attr,
-                                                      [self._stretch_min_attr, self._stretch_max_attr],
-                                                      [blend_min, blend_max],
-                                                      name=namingUtils.update(self._controls[-1], type='remapValue',
-                                                                              additional_description='stretchWeight'))
-
-        # blend with original weight value to turn it on and off
-        name = namingUtils.update(self._controls[-1], type='blendColors', additional_description='stretchWeight')
-        blend_stretch = nodeUtils.utility.blend_colors(self._stretch_attr, remap_stretch, 1, name=name) + 'R'
-        # multiply translate X to do stretch
-        tx_val = cmds.getAttr(self._setup_nodes[-1] + '.translateX')
-        nodeUtils.arithmetic.equation('{0}*{1}'.format(tx_val, blend_stretch),
-                                      namingUtils.update(self._controls[-1], additional_description='stretch'),
-                                      connect_attr=self._setup_nodes[-1] + '.translateX')
+        # add stretchy setup
+        limbUtils.function.stretchyUtils.add_stretchy(self._setup_nodes, self._controls[-1], self._stretch_attr,
+                                                      dis_stretch + '.distance', distance,
+                                                      self._stretch_max_attr, self._stretch_min_attr,
+                                                      self._stretch_clamp_max_attr, self._stretch_clamp_min_attr)

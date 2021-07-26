@@ -2,7 +2,7 @@
 import json
 
 
-# functions
+# function
 def read(file_path):
     """
     read json file from given path

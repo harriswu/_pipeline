@@ -151,12 +151,12 @@ def position_constraint(input_matrices, nodes, weights=1, parent_inverse_matrice
 
             if maintain_offset:
                 # get target matrix
-                mtx_local = transformUtils.compose_matrix(translate=local_transform[0], rotate=local_transform[1])
+                mtx_local = mathUtils.matrix.compose(translate=local_transform[0], rotate=local_transform[1])
                 mtx = mathUtils.matrix.multiply(mtx_local, mtx, output_type='numpy')
                 # get offset value if needed
                 local_matrix = mathUtils.matrix.localize(pos_matrix, mtx, output_type='list')
                 # decompose to get translate and rotate values
-                offset_values = transformUtils.decompose_matrix(local_matrix)
+                offset_values = mathUtils.matrix.decompose(local_matrix)
                 # set offset
                 cmds.setAttr('{0}.target[{1}].targetOffsetTranslate'.format(cons, i), *offset_values[0])
                 cmds.setAttr('{0}.target[{1}].targetOffsetRotate'.format(cons, i), *offset_values[1])
@@ -567,7 +567,7 @@ def matrix_connect(input_matrix, nodes, skip=None, force=True):
     return decompose_node
 
 
-# sub functions
+# sub function
 def _curve_point_attach(curve, node, parent_inverse_matrix=None, force=True):
     """
     attach node's translation to the given curve's closest point

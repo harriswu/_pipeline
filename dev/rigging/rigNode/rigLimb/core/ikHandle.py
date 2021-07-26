@@ -20,11 +20,18 @@ class IkHandle(coreLimb.CoreLimb):
         # set ik type
         self._ik_type = 'ikSCsolver'
 
+        self._hide_root_control = None
+
         # ik info
         self._iks = []
         self._ik_groups = []
 
-    # build functions
+    # build kwargs
+    def get_build_kwargs(self, **kwargs):
+        super(IkHandle, self).get_build_kwargs(**kwargs)
+        self._hide_root_control = kwargs.get('hide_root_control', False)
+
+    # build function
     def create_setup(self):
         super(IkHandle, self).create_setup()
         self.create_ik()
@@ -61,6 +68,13 @@ class IkHandle(coreLimb.CoreLimb):
         attributeUtils.add(self._output_node, [self.IKS_ATTR, self.IK_GROUPS_ATTR], attribute_type='message',
                            multi=True)
 
+    def append_hide_controller(self):
+        super(IkHandle, self).append_hide_controller()
+        if self._hide_root_control and self._controls:
+            self._hide_controls.append(self._controls[0])
+
+    def connect_limb_info(self):
+        super(IkHandle, self).connect_limb_info()
         # connect ik info to attributes
         attributeUtils.connect_nodes_to_multi_attr(self._iks, self.IKS_ATTR, driver_attr=attributeUtils.MESSAGE,
                                                    driven=self._output_node)

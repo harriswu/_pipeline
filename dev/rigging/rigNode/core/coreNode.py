@@ -29,11 +29,12 @@ class CoreNode(coreFunction.CoreFunction):
         super(CoreNode, self).__init__(**kwargs)
         self._flip = kwargs.get('flip', False)
         self._skip_name_flip = kwargs.get('skip_name_flip', False)
+        self._skip_setting_flip = kwargs.get('skip_setting_flip', False)
         # node type for different naming
         self._node_type = 'rigNode'
 
         # build sections
-        self._build_list.update({'get_info': {'functions': {},
+        self._build_list.update({'get_info': {'function': {},
                                               'keys': []}})
 
         # hierarchy nodes
@@ -95,7 +96,7 @@ class CoreNode(coreFunction.CoreFunction):
 
     def get_build_setting(self):
         super(CoreNode, self).get_build_setting()
-        if self._side != 'right' and 'right' not in self._side:
+        if (self._side != 'right' and 'right' not in self._side) or self._skip_setting_flip:
             self.get_left_build_setting()
         else:
             self.get_right_build_setting()
@@ -120,7 +121,7 @@ class CoreNode(coreFunction.CoreFunction):
 
     def get_connect_setting(self):
         super(CoreNode, self).get_connect_setting()
-        if self._side != 'right' and 'right' not in self._side:
+        if (self._side != 'right' and 'right' not in self._side) or self._skip_setting_flip:
             self.get_left_connect_setting()
         else:
             self.get_right_connect_setting()
@@ -131,12 +132,12 @@ class CoreNode(coreFunction.CoreFunction):
     def get_right_connect_setting(self):
         pass
 
-    # execute functions
+    # execute function
     def get_info(self, node):
         self._node = node
 
         for key in self._build_list['get_info']['keys']:
-            self._build_list['get_info']['functions'][key]()
+            self._build_list['get_info']['function'][key]()
 
     # register steps to sections
     def register_steps(self):
@@ -159,7 +160,7 @@ class CoreNode(coreFunction.CoreFunction):
         self.add_build_step('get input info', self.get_input_info, 'get_info')
         self.add_build_step('get output info', self.get_output_info, 'get_info')
 
-    # build functions
+    # build function
     def create_hierarchy(self):
         """
         create node's hierarchy
@@ -191,7 +192,7 @@ class CoreNode(coreFunction.CoreFunction):
     def add_output_attributes(self):
         pass
 
-    # connect functions
+    # connect function
     def add_input_attributes_post(self):
         pass
 
@@ -232,7 +233,7 @@ class CoreNode(coreFunction.CoreFunction):
     def add_object_attribute(self, attr_name, value):
         setattr(self, attr_name, value)
 
-    # static method functions
+    # static method function
     # set attrs
     @staticmethod
     def set_multi_attr_values(attr, values, node=None):
